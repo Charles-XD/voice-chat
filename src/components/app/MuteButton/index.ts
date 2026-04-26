@@ -1,8 +1,9 @@
 import { html } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { Button } from "../../ui/Button";
+import { logger } from "../_services/logger.service";
 
-@customElement('mute-button')
+@customElement('app-mute-button')
 export class MuteButton extends Button {
   @property({ type: Boolean }) muted = false;
 
@@ -11,6 +12,7 @@ export class MuteButton extends Button {
 
   protected override handleClick(e: Event) {
     this.muted = !this.muted;
+    logger.log('INFO', `${this.muted ? 'Mute' : 'Unmute'}`);
     this.onClick?.(e);
   }
 
@@ -23,6 +25,6 @@ export class MuteButton extends Button {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "mute-button": MuteButton;
+    "app-mute-button": MuteButton;
   }
 }

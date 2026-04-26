@@ -52,6 +52,14 @@ class SocketService {
 
     return () => this.listeners.delete(listener);
   }
+
+  async joinRoom(room: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      this.socket.emit("join-room", room, (res: { success: boolean }) => {
+        resolve(res.success);
+      });
+    });
+  }
 }
 
 export const socketService = new SocketService();

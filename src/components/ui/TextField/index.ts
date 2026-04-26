@@ -1,11 +1,30 @@
 import { html, LitElement } from "lit";
-import { customElement } from "lit/decorators.js";
+import { customElement, property } from "lit/decorators.js";
 
 @customElement('ui-textfield')
 export class TextField extends LitElement {
+  @property({ type: String }) value = '';
+
+  protected onInput(e: Event) {
+    const target = e.target as HTMLInputElement;
+    this.value = target.value;
+
+    this.dispatchEvent(
+      new CustomEvent('onChange', {
+        detail: this.value,
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
 
   override render() {
-    return html`<input></input>`
+    return html`
+      <input 
+        .value=${this.value}
+        @input=${this.onInput}
+      />
+    `;
   }
 }
 

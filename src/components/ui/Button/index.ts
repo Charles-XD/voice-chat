@@ -5,7 +5,15 @@ import { customElement, property } from "lit/decorators.js";
 export class Button extends LitElement {
   @property({ type: Boolean }) disabled = false;
 
-  protected handleClick(_e: Event) {}
+  protected handleClick(e: Event) {
+    this.dispatchEvent(
+      new CustomEvent('onClick', {
+        detail: { originalEvent: e },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
 
   protected renderContent() {
     return html`<slot></slot>`
