@@ -22,8 +22,6 @@ export class ConnectionStatus extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
 
-    logger.log("INFO", "Connecting to server...");
-
     this.unsubscribe = socketService.onChange((connected, latency) => {
       this.connected = connected;
       this.latency = latency;
@@ -45,6 +43,7 @@ export class ConnectionStatus extends LitElement {
       logger.log("SUCCESS", `Active room: (${this.room})`);
     } catch (e) {
       this.joined = false;
+      logger.log("ERROR", `Could not join room: (${this.room})`);
     }
   }
 

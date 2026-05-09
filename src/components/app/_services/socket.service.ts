@@ -1,4 +1,5 @@
 import { io, Socket } from "socket.io-client";
+import { logger } from "./logger.service";
 
 class SocketService {
   socket: Socket;
@@ -13,14 +14,22 @@ class SocketService {
       autoConnect: true,
     });
 
-    this.socket.on("connect", () => {
+    const initiated = this.socket.on("connect", () => {
       this.startPing();
       this.emit(true);
+      logger.log("SUCCESS", "Connected.");
     });
+
+    if (initiated.connected) {
+      logger.log("SUCCESS", "Connection established.");
+    } else {
+      logger.log("ERROR", "Could not stablish connection.")
+    }
 
     this.socket.on("disconnect", () => {
       this.stopPing();
       this.emit(false);
+      logger.log("ERROR", "Disconnected.")
     });
 
     this.socket.on("pong", (sentTime: number) => {
@@ -54,10 +63,16 @@ class SocketService {
   }
 
   async joinRoom(room: string): Promise<boolean> {
-    return new Promise((resolve) => {
-      this.socket.emit("join-room", room, (res: { success: boolean }) => {
-        resolve(res.success);
+    return new Promise((resolve, reject) => {
+      const join = this.socket.emit("join-room", room, (res: { success: boolean }) => {
+        if (res.success) {
+          resolve(res.success);
+        } else {
+          reject();
+        }
       });
+
+      join.connected ? resolve(true) : reject();
     });
   }
 }
