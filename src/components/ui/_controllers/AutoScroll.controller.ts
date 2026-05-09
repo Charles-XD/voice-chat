@@ -1,16 +1,18 @@
 import { ReactiveController, ReactiveControllerHost } from "lit";
-import { createRef, Ref } from "lit/directives/ref.js";
+import { Ref } from "lit/directives/ref.js";
 
 export class AutoScrollController implements ReactiveController {
-  host: ReactiveControllerHost;
+  private host: ReactiveControllerHost;
+  private scrollRef: Ref<HTMLElement>;
 
-  disableAutoScroll: boolean = false; 
-  isProgrammaticScroll: boolean = false;
-  scrollRef = createRef<HTMLElement>();
+  disableAutoScroll = false;
+  private isProgrammaticScroll = false;
+  private boundScrollHandler = this.handleScroll.bind(this);
 
   constructor(host: ReactiveControllerHost, ref: Ref<HTMLElement>) {
-    (this.host = host).addController(this);
+    this.host = host;
     this.scrollRef = ref;
+    host.addController(this);
   }
 
   private isAtBottom(el: HTMLElement) {
@@ -24,43 +26,39 @@ export class AutoScrollController implements ReactiveController {
     this.disableAutoScroll = !this.isAtBottom(el);
   }
 
-  hostConnected() {
+  hostUpdated() {
     const el = this.scrollRef.value;
     if (!el) return;
 
-    el.addEventListener('wheel', () => {
-      const el = this.scrollRef.value;
-      this.disableAutoScroll = el ? !this.isAtBottom(el) : true;
-    }, { passive: true });
+    el.removeEventListener("scroll", this.boundScrollHandler);
+    el.addEventListener("scroll", this.boundScrollHandler);
 
-    el.addEventListener('touchmove', () => {
-      const el = this.scrollRef.value;
-      this.disableAutoScroll = el ? !this.isAtBottom(el) : true;
-    }, { passive: true });
+    if (!this.disableAutoScroll) {
+      this.scrollToBottom();
+    }
   }
 
   hostDisconnected() {
     const el = this.scrollRef.value;
     if (!el) return;
 
-    el.removeEventListener('wheel', () => {});
-    el.removeEventListener('touchmove', () => {});
+    el.removeEventListener("scroll", this.boundScrollHandler);
   }
 
-  hostUpdated() {
-    if (this.disableAutoScroll) return;
-
+  scrollToBottom() {
     const el = this.scrollRef.value;
     if (!el) return;
 
     this.isProgrammaticScroll = true;
 
-    queueMicrotask(() => {
-      el.scrollTop = el.scrollHeight;
+    el.scrollTop = el.scrollHeight;
 
-      requestAnimationFrame(() => {
-        this.isProgrammaticScroll = false;
-      });
+    requestAnimationFrame(() => {
+      this.isProgrammaticScroll = false;
     });
+  }
+
+  public onScroll() {
+    this.handleScroll();
   }
 }
