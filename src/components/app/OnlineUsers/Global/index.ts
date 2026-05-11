@@ -19,9 +19,9 @@ export class GlobalUsers extends LitElement {
       logger.log("SUCCESS", "Connected in global users.");
     });
 
-    socketService.socket.on("connect-data", (data) => {
-      logger.log("INFO", `Connection data: ${data}`);
-      this.users.push(data);
+    socketService.socket.on("user-count-update", (data) => {
+      logger.log("INFO", `Online users count: ${data}`);
+      this.users = [data];
     })
   }
 

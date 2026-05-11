@@ -1,12 +1,12 @@
 import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { createRef, ref } from 'lit/directives/ref.js';
+import { createRef, ref } from "lit/directives/ref.js";
 import { type Log, logger } from "../_services/logger.service";
 
 import styles from "./styles";
 import { AutoScrollController } from "../../ui/_controllers/AutoScroll.controller";
 
-@customElement('app-logs')
+@customElement("app-logs")
 export class Logs extends LitElement {
   static styles = styles;
 
@@ -17,7 +17,7 @@ export class Logs extends LitElement {
   private maxLines: number = 50;
 
   private logsRef = createRef<HTMLDivElement>();
-  
+
   private autoScroll = new AutoScrollController(this, this.logsRef);
   private onScroll = this.autoScroll.onScroll.bind(this.autoScroll);
   private scrollToBottom = this.autoScroll.scrollToBottom.bind(this.autoScroll);
@@ -39,7 +39,7 @@ export class Logs extends LitElement {
   }
 
   override updated(changed: Map<string, unknown>) {
-    if (!changed.has('appLogs')) return;
+    if (!changed.has("appLogs")) return;
     if (this.autoScroll.disableAutoScroll) return;
 
     this.scrollToBottom();
@@ -47,31 +47,27 @@ export class Logs extends LitElement {
 
   override render() {
     return html`
-    <div 
-      class="logs" 
-      ${ref(this.logsRef)}
-      @scroll=${this.onScroll}
-    >
-      <div class="title">Logs</div>
+      <div class="logs" ${ref(this.logsRef)} @scroll=${this.onScroll}>
+        <div class="title">Logs</div>
 
-      <ul class="list">
-        ${this.appLogs.map(
-      (l) => html`
-            <li class="log log-${l.level.toLowerCase()}">
-              <div class="meta">
-                <span class="level">${l.level}</span>
-                <span class="time">
-                  ${new Date(l.loggedAt).toLocaleTimeString()}
-                </span>
-              </div>
+        <ul class="list">
+          ${this.appLogs.map(
+            (l) => html`
+              <li class="log log-${l.level.toLowerCase()}">
+                <div class="meta">
+                  <span class="level">${l.level}</span>
+                  <span class="time">
+                    ${new Date(l.loggedAt).toLocaleTimeString()}
+                  </span>
+                </div>
 
-              <div class="message">${l.message}</div>
-            </li>
-          `
-    )}
-      </ul>
-    </div>
-  `;
+                <div class="message">${l.message}</div>
+              </li>
+            `,
+          )}
+        </ul>
+      </div>
+    `;
   }
 }
 

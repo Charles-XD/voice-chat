@@ -14,17 +14,11 @@ class SocketService {
       autoConnect: true,
     });
 
-    const initiated = this.socket.on("connect", () => {
+    this.socket.on("connect", () => {
       this.startPing();
       this.emit(true);
       logger.log("SUCCESS", "Connected.");
     });
-
-    if (initiated.connected) {
-      logger.log("SUCCESS", "Connection established.");
-    } else {
-      logger.log("ERROR", "Could not stablish connection.")
-    }
 
     this.socket.on("disconnect", () => {
       this.stopPing();
@@ -73,6 +67,20 @@ class SocketService {
       });
 
       join.connected ? resolve(true) : reject();
+    });
+  }
+
+  async leaveRoom(room: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      const leave = this.socket.emit("leave-room", room, (res: { success: boolean }) => {
+        if (res.success) {
+          resolve(res.success);
+        } else {
+          reject();
+        }
+      });
+
+      leave.connected ? resolve(true) : reject();
     });
   }
 }

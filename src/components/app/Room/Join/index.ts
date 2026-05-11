@@ -1,24 +1,54 @@
 import { html, LitElement } from "lit";
-import { customElement, state } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 import { logger } from "../../_services/logger.service";
 import { socketService } from "../../_services/socket.service";
+import { consume } from "@lit/context";
+import { roomContext, RoomState } from "../../_context/room.context";
 
-@customElement('app-room-join')
+@customElement("app-room-join")
 export class RoomJoin extends LitElement {
   @state()
-  private roomName = 'asd';
+  private roomName = "";
+
+  @consume({ context: roomContext, subscribe: true })
+  @property({ attribute: false })
+  room?: RoomState;
 
   private async handleJoinRoom() {
     const joined = await socketService.joinRoom(this.roomName);
 
-    joined ? 
-      logger.log("INFO", `Joined room ${this.roomName}.`) 
-      : logger.log("ERROR", `Could not join ${this.roomName}.`);
+    if (joined) {
+      logger.log("SUCCESS", `Joined the room (${this.roomName}).`);
+      this.dispatchEvent(
+        new CustomEvent("room-change", {
+          detail: {
+            name: this.roomName,
+          },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    } else {
+      logger.log("ERROR", `Could not join ${this.roomName}.`);
+    }
+  }
+
+  private async handleLeaveRoom() {
+    await socketService.leaveRoom(this.roomName);
+    logger.log("ERROR", `Left the room (${this.roomName}).`);
+    this.roomName = "";
+    this.dispatchEvent(
+      new CustomEvent("room-change", {
+        detail: {
+          name: "",
+        },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   private handleRoomNameChange(e: CustomEvent) {
-    logger.log("INFO", JSON.stringify(e.detail));
-
     this.roomName = e.detail;
   }
 
@@ -26,8 +56,14 @@ export class RoomJoin extends LitElement {
     return html`
       <div>
         Room:
-        <ui-textfield .value=${this.roomName} @onChange=${this.handleRoomNameChange}></ui-textfield>
-        <ui-button @onClick=${this.handleJoinRoom}>Join</ui-button>
+        <ui-textfield
+          .disabled=${Boolean(this.room?.name)}
+          .value=${this.roomName}
+          @onChange=${this.handleRoomNameChange}
+        ></ui-textfield>
+        ${this.room?.name
+          ? html`<ui-button @onClick=${this.handleLeaveRoom}>Leave</ui-button>`
+          : html`<ui-button @onClick=${this.handleJoinRoom}>Join</ui-button>`}
       </div>
     `;
   }
@@ -35,6 +71,6 @@ export class RoomJoin extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'app-room-join': RoomJoin;
+    "app-room-join": RoomJoin;
   }
 }

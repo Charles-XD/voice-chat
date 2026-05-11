@@ -3,6 +3,7 @@ import { customElement, property } from "lit/decorators.js";
 
 @customElement('ui-textfield')
 export class TextField extends LitElement {
+  @property({ type: Boolean }) disabled = false;
   @property({ type: String }) value = '';
 
   protected onInput(e: Event) {
@@ -21,6 +22,7 @@ export class TextField extends LitElement {
   override render() {
     return html`
       <input 
+        ?disabled=${this.disabled}
         .value=${this.value}
         @input=${this.onInput}
       />

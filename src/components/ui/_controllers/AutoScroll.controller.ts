@@ -45,7 +45,7 @@ export class AutoScrollController implements ReactiveController {
     el.removeEventListener("scroll", this.boundScrollHandler);
   }
 
-  scrollToBottom() {
+  public scrollToBottom() {
     const el = this.scrollRef.value;
     if (!el) return;
 

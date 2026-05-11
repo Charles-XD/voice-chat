@@ -11,12 +11,6 @@ export class ConnectionStatus extends LitElement {
   @state()
   private latency = 0;
 
-  @state()
-  private room = 'chat';
-
-  @state()
-  private joined = false;
-
   private unsubscribe?: () => void;
 
   override connectedCallback() {
@@ -26,25 +20,11 @@ export class ConnectionStatus extends LitElement {
       this.connected = connected;
       this.latency = latency;
     });
-
-    this.joinRoom();
   }
 
   override disconnectedCallback() {
     this.unsubscribe?.();
     super.disconnectedCallback();
-  }
-
-  private async joinRoom() {
-    logger.log("INFO", `Joining to room (${this.room})`);
-    try {
-      const success = await socketService.joinRoom(this.room);
-      this.joined = success;
-      logger.log("SUCCESS", `Active room: (${this.room})`);
-    } catch (e) {
-      this.joined = false;
-      logger.log("ERROR", `Could not join room: (${this.room})`);
-    }
   }
 
   override render() {
