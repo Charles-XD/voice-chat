@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@lit-labs/router':
+        specifier: ^0.1.4
+        version: 0.1.4
       '@lit/context':
         specifier: ^1.1.6
         version: 1.1.6
@@ -164,6 +167,9 @@ packages:
     engines: {node: '>=12'}
     cpu: [x64]
     os: [win32]
+
+  '@lit-labs/router@0.1.4':
+    resolution: {integrity: sha512-xURH6fOPE0MYfXa1nyl+qTIhZRVWkFa2oggTRodKAI2q/HjA2Va7HEKe7fMm8DdnFE+zEI2aUGnStawKpVh3lQ==, tarball: https://mirror2.chabokan.net/npm/@lit-labs%2Frouter/-/router-0.1.4.tgz}
 
   '@lit-labs/ssr-dom-shim@1.5.1':
     resolution: {integrity: sha512-Aou5UdlSpr5whQe8AA/bZG0jMj96CoJIWbGfZ91qieWu5AWUMKw8VR/pAkQkJYvBNhmCcWnZlyyk5oze8JIqYA==}
@@ -420,6 +426,10 @@ snapshots:
 
   '@esbuild/win32-x64@0.18.20':
     optional: true
+
+  '@lit-labs/router@0.1.4':
+    dependencies:
+      lit: 2.8.0
 
   '@lit-labs/ssr-dom-shim@1.5.1': {}
 

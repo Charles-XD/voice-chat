@@ -1,10 +1,18 @@
 import { ContextProvider, provide } from "@lit/context";
-import { LitElement, html } from "lit";
+import { LitElement, css, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { roomContext, RoomState } from "./components/app/_context/room.context";
 
 @customElement("voice-app")
 export class App extends LitElement {
+  static styles = css`
+    :host {
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+    }
+  `;
+
   @provide({ context: roomContext })
   @state()
   private room: RoomState = {
@@ -39,18 +47,10 @@ export class App extends LitElement {
 
   override render() {
     return html`
-      <app-connection-status></app-connection-status>
-
-      <ui-button disabled> disabled </ui-button>
-
       <app-mute-button></app-mute-button>
-      <br />
       <app-room-join></app-room-join>
-      <br />
       <app-current-room></app-current-room>
-      <br />
       <app-logs></app-logs>
-      <br />
       <app-online-users-global></app-online-users-global>
     `;
   }
