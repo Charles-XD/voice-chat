@@ -15,14 +15,12 @@ export class HomePage extends LitElement {
     }
 
     .subtitle {
-      color: #888;
+      color: var(--app-muted, #94a3b8);
       margin-bottom: 8px;
     }
 
     .textfield {
       width: 100%;
-      border: solid 1px #ccc;
-      outline: none;
     }
 
     .remember {
@@ -32,6 +30,7 @@ export class HomePage extends LitElement {
     }
     .remember label {
       font-size: 13px;
+      color: var(--app-text, #e5e7eb);
     }
 
     ui-button {

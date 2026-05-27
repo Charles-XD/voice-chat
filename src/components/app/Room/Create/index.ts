@@ -12,14 +12,12 @@ export class RoomCreate extends LitElement {
     }
 
     .subtitle {
-      color: #888;
+      color: var(--app-muted, #94a3b8);
       margin-bottom: 8px;
     }
 
     .textfield {
       width: 100%;
-      border: solid 1px #ccc;
-      outline: none;
     }
   `;
 
