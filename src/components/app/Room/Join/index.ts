@@ -18,6 +18,7 @@ export class RoomJoin extends LitElement {
     const joined = await socketService.joinRoom(this.roomName);
 
     if (joined) {
+      logger.clear();
       logger.log("SUCCESS", `Joined the room (${this.roomName}).`);
       this.dispatchEvent(
         new CustomEvent("room-change", {
@@ -46,6 +47,7 @@ export class RoomJoin extends LitElement {
         composed: true,
       }),
     );
+    logger.clear();
   }
 
   private handleRoomNameChange(e: CustomEvent) {
