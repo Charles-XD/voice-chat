@@ -10,6 +10,41 @@ export class App extends LitElement {
       display: flex;
       flex-direction: column;
       flex-grow: 1;
+      min-height: 0;
+    }
+
+    .layout {
+      display: flex;
+      flex: 1;
+      gap: 16px;
+      min-height: 0;
+    }
+
+    .main {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .logs {
+      flex: 0 0 30%;
+      max-width: 30%;
+      min-width: 320px;
+      min-height: 0;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        flex-direction: column;
+      }
+
+      .logs {
+        flex: 0 0 auto;
+        max-width: 100%;
+        min-width: 0;
+      }
     }
   `;
 
@@ -47,11 +82,18 @@ export class App extends LitElement {
 
   override render() {
     return html`
-      <app-mute-button></app-mute-button>
-      <app-room-join></app-room-join>
-      <app-current-room></app-current-room>
-      <app-logs></app-logs>
-      <app-online-users-global></app-online-users-global>
+      <div class="layout">
+        <div class="main">
+          <app-mute-button></app-mute-button>
+          <app-room-join></app-room-join>
+          <app-current-room></app-current-room>
+          <app-online-users-global></app-online-users-global>
+        </div>
+
+        <div class="logs">
+          <app-logs></app-logs>
+        </div>
+      </div>
     `;
   }
 }

@@ -65,7 +65,7 @@ export class Ping extends LitElement {
     }
 
     .ms {
-      color: #64748b;
+      color: var(--app-muted, #94a3b8);
       font-size: 12px;
     }
   `;

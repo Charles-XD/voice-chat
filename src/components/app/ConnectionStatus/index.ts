@@ -12,6 +12,7 @@ export class ConnectionStatus extends LitElement {
       font-size: 13px;
       line-height: 1;
       user-select: none;
+      color: var(--app-text, #e5e7eb);
     }
 
     .pill {
@@ -78,43 +79,43 @@ export class ConnectionStatus extends LitElement {
     }
 
     .pill[data-state="connected"] {
-      color: #166534;
-      background: #dcfce7;
-      border-color: #86efac;
+      color: var(--status-connected-fg, #86efac);
+      background: var(--status-connected-bg, rgba(34, 197, 94, 0.14));
+      border-color: var(--status-connected-border, rgba(34, 197, 94, 0.35));
     }
     .pill[data-state="connected"] .dot {
-      background: #22c55e;
-      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.15);
+      background: var(--status-connected-dot, #22c55e);
+      box-shadow: 0 0 0 2px var(--status-connected-ring, rgba(34, 197, 94, 0.15));
     }
 
     .pill[data-state="connecting"] {
-      color: #92400e;
-      background: #fef3c7;
-      border-color: #fcd34d;
+      color: var(--status-connecting-fg, #fcd34d);
+      background: var(--status-connecting-bg, rgba(245, 158, 11, 0.14));
+      border-color: var(--status-connecting-border, rgba(245, 158, 11, 0.35));
     }
     .pill[data-state="connecting"] .dot {
-      background: #f59e0b;
-      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+      background: var(--status-connecting-dot, #f59e0b);
+      box-shadow: 0 0 0 2px var(--status-connecting-ring, rgba(245, 158, 11, 0.15));
     }
 
     .pill[data-state="reconnecting"] {
-      color: #92400e;
-      background: #fef3c7;
-      border-color: #fcd34d;
+      color: var(--status-reconnecting-fg, var(--status-connecting-fg, #fcd34d));
+      background: var(--status-reconnecting-bg, var(--status-connecting-bg, rgba(245, 158, 11, 0.14)));
+      border-color: var(--status-reconnecting-border, var(--status-connecting-border, rgba(245, 158, 11, 0.35)));
     }
     .pill[data-state="reconnecting"] .dot {
-      background: #f59e0b;
-      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+      background: var(--status-reconnecting-dot, var(--status-connecting-dot, #f59e0b));
+      box-shadow: 0 0 0 2px var(--status-reconnecting-ring, var(--status-connecting-ring, rgba(245, 158, 11, 0.15)));
     }
 
     .pill[data-state="disconnected"] {
-      color: #7f1d1d;
-      background: #fee2e2;
-      border-color: #fca5a5;
+      color: var(--status-disconnected-fg, #fca5a5);
+      background: var(--status-disconnected-bg, rgba(239, 68, 68, 0.14));
+      border-color: var(--status-disconnected-border, rgba(239, 68, 68, 0.35));
     }
     .pill[data-state="disconnected"] .dot {
-      background: #ef4444;
-      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
+      background: var(--status-disconnected-dot, #ef4444);
+      box-shadow: 0 0 0 2px var(--status-disconnected-ring, rgba(239, 68, 68, 0.15));
     }
 
     @media (prefers-reduced-motion: reduce) {

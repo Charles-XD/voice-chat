@@ -4,8 +4,8 @@ export default css`
   .logs {
     font-family: monospace;
     padding: 12px;
-    background: #0f172a;
-    color: #e5e7eb;
+    background: var(--app-bg, #0f172a);
+    color: var(--app-text, #e5e7eb);
     border-radius: 12px;
     width: 100%;
     box-sizing: border-box;
@@ -16,7 +16,7 @@ export default css`
   .title {
     font-weight: bold;
     margin-bottom: 8px;
-    color: #93c5fd;
+    color: var(--app-link, #93c5fd);
   }
 
   .list {
@@ -31,7 +31,7 @@ export default css`
   .log {
     padding: 8px 10px;
     border-radius: 8px;
-    background: #1e293b;
+    background: var(--app-surface, #1e293b);
     display: flex;
     flex-direction: column;
     gap: 4px;
