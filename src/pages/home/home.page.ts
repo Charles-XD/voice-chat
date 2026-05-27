@@ -34,6 +34,11 @@ export class HomePage extends LitElement {
       font-size: 13px;
     }
 
+    ui-button {
+      width: 100%;
+      display: block;
+    }
+
     ui-button::part(button) {
       width: 100%;
       margin: 8px 0px;
