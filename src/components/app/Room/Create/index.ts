@@ -16,6 +16,12 @@ export class RoomCreate extends LitElement {
       margin-bottom: 8px;
     }
 
+    .key-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
     .textfield {
       width: 100%;
     }
@@ -52,12 +58,15 @@ export class RoomCreate extends LitElement {
   render() {
     return html`
       <p class="subtitle">Share this <strong>Key</strong> to invite others.</p>
-      <ui-textfield
-        class="textfield"
-        disabled
-        .value=${this.roomName}
-        @onChange=${this.handleRoomNameChange}
-      ></ui-textfield>
+      <div class="key-row">
+        <ui-textfield
+          class="textfield"
+          disabled
+          .value=${this.roomName}
+          @onChange=${this.handleRoomNameChange}
+        ></ui-textfield>
+        <ui-copy-button .value=${this.roomName}></ui-copy-button>
+      </div>
       <br />
       <ui-button @onClick=${this.handleStartVoiceChat}>
         Start Voice Chat
