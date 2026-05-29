@@ -52,6 +52,29 @@ export class UserController implements ReactiveController {
     this.dispatch({ name, isGuest: true });
   }
 
+  public async updateName(name: string): Promise<User | null> {
+    const key = localStorage.getItem(USER_KEY);
+    if (!key) return null;
+
+    try {
+      const response = await fetch("http://localhost:4000/api/name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, name }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update name");
+      const data = await response.json();
+
+      const resolved: User = { key, name: data.name };
+      this.dispatch(resolved);
+      return resolved;
+    } catch (error) {
+      console.error("Failed to update profile name:", error);
+      return null;
+    }
+  }
+
   public logout() {
     localStorage.removeItem(USER_KEY);
     this.dispatch(null);

@@ -33,6 +33,7 @@ const io = new Server(httpServer, {
 
 app.use(express.static("public")); // serve frontend
 app.use(cors({ origin: "*" })); // serve frontend
+app.use(express.json()); // parse JSON request bodies
 
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);
@@ -177,6 +178,22 @@ app.get('/api', (req, res) => {
     res.send({
       name: result,
     })
+  });
+});
+
+app.post('/api/name', (req, res) => {
+  const { key, name } = req.body;
+  if (!key || !name) return res.status(400).send("BAD_REQUEST");
+
+  // Only update existing accounts, never create one from a stray key.
+  redisClient.exists(key, (existsErr, exists) => {
+    if (existsErr) return res.status(400).send("REDIS_ERROR");
+    if (!exists) return res.status(404).send("NOT_FOUND");
+
+    redisClient.hset(key, "name", name, (err) => {
+      if (err) return res.status(400).send("REDIS_ERROR");
+      res.send({ name });
+    });
   });
 });
 
