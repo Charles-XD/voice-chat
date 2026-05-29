@@ -1,8 +1,7 @@
-import { ReactiveController, ReactiveControllerHost } from "lit";
-import { Ref } from "lit/directives/ref.js";
+import type { ReactiveController, ReactiveControllerHost } from "lit";
+import type { Ref } from "lit/directives/ref.js";
 
 export class AutoScrollController implements ReactiveController {
-  private host: ReactiveControllerHost;
   private scrollRef: Ref<HTMLElement>;
 
   disableAutoScroll = false;
@@ -10,7 +9,6 @@ export class AutoScrollController implements ReactiveController {
   private boundScrollHandler = this.handleScroll.bind(this);
 
   constructor(host: ReactiveControllerHost, ref: Ref<HTMLElement>) {
-    this.host = host;
     this.scrollRef = ref;
     host.addController(this);
   }

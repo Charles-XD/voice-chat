@@ -37,7 +37,9 @@ export class CopyButton extends LitElement {
       ta.style.opacity = "0";
       document.body.appendChild(ta);
       ta.select();
-      document.execCommand("copy");
+      const legacyCopy = (document as unknown as { execCommand(commandId: string): boolean })
+        .execCommand;
+      legacyCopy.call(document, "copy");
       document.body.removeChild(ta);
     }
 
@@ -61,8 +63,9 @@ export class CopyButton extends LitElement {
         aria-label=${label}
         title=${label}
       >
-        ${this.copied
-          ? html`<svg
+        ${
+          this.copied
+            ? html`<svg
               viewBox="0 0 24 24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -76,7 +79,7 @@ export class CopyButton extends LitElement {
                 stroke-linejoin="round"
               />
             </svg>`
-          : html`<svg
+            : html`<svg
               viewBox="0 0 24 24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -98,7 +101,8 @@ export class CopyButton extends LitElement {
                 stroke-linecap="round"
                 stroke-linejoin="round"
               />
-            </svg>`}
+            </svg>`
+        }
       </button>
     `;
   }
@@ -109,4 +113,3 @@ declare global {
     "ui-copy-button": CopyButton;
   }
 }
-

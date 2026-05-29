@@ -1,10 +1,13 @@
 import { consume } from "@lit/context";
-import { LitElement, html } from "lit";
+import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { userContext } from "../../providers/user.provider";
-import { User } from "../../interfaces/user.interface";
-import { UserController } from "../../controllers/user.controller";
 import { routerService } from "../../components/app/_services/router.service";
+import { UserController } from "../../controllers/user.controller";
+import { hasKey, isGuest } from "../../guards/access";
+import type { User } from "../../interfaces/user.interface";
+import { userContext } from "../../providers/user.provider";
+
+const GUEST_LANDING = "/room/join";
 
 import styles from "./styles";
 
@@ -24,15 +27,18 @@ export class HomePage extends LitElement {
 
   private userController = new UserController(this);
 
-  private handleUserNavigation() {
-    const url = routerService.getSearchParams("origin") ?? "/";
+  private navigate(url: string) {
     this.dispatchEvent(
       new CustomEvent("navigate", {
-        detail: `${url}`,
+        detail: url,
         bubbles: true,
         composed: true,
       }),
     );
+  }
+
+  private handleUserNavigation() {
+    this.navigate(routerService.getSearchParams("origin") ?? "/");
   }
 
   private async handleEnterSubmit(e: Event) {
@@ -75,7 +81,8 @@ export class HomePage extends LitElement {
 
     this.userController.guest(name);
     this.resetForms();
-    this.handleUserNavigation();
+    // Guests have no key, so send them straight to the only page they can use.
+    this.navigate(GUEST_LANDING);
   }
 
   private resetForms() {
@@ -95,12 +102,28 @@ export class HomePage extends LitElement {
     if (this.nameError) this.nameError = "";
   }
 
+  private renderGuestLanding() {
+    return html`
+      <div class="card guest">
+        <h2>You're in guest mode</h2>
+        <p class="subtitle">
+          Guest access is limited. You can join an existing room — features that
+          need an account key are unavailable.
+        </p>
+        <ui-button @onClick=${() => this.navigate(GUEST_LANDING)}>
+          Go to Join
+        </ui-button>
+      </div>
+    `;
+  }
+
   render() {
     // While submitting, keep showing the form so the loading button is visible
     // and we don't swap to <app-room-create> before the fetch resolves.
     if (!this.submitting) {
       if (this.user?.loading) return html`Loading User ...`;
-      if (this.user?.key) return html`<app-room-create></app-room-create>`;
+      if (hasKey(this.user)) return html`<app-room-create></app-room-create>`;
+      if (isGuest(this.user)) return this.renderGuestLanding();
     }
 
     return html`

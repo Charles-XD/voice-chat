@@ -1,5 +1,5 @@
 export interface Log {
-  level: 'INFO' | 'SUCCESS' | 'WARN' | 'ERROR';
+  level: "INFO" | "SUCCESS" | "WARN" | "ERROR";
   message: string;
   loggedAt: Date;
 }
@@ -8,7 +8,7 @@ class Logger {
   private logs: Set<Log> = new Set();
   private listeners: Set<(logs: Log[]) => void> = new Set();
 
-  log(level: Log['level'], message: Log['message']) {
+  log(level: Log["level"], message: Log["message"]) {
     this.logs.add({
       level,
       message,
@@ -37,7 +37,9 @@ class Logger {
 
   private emit() {
     const snapshot = [...this.logs];
-    this.listeners.forEach((l) => l(snapshot));
+    this.listeners.forEach((l) => {
+      l(snapshot);
+    });
   }
 }
 

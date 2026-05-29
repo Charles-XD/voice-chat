@@ -1,5 +1,5 @@
-import { LitElement, ReactiveController, ReactiveControllerHost } from "lit";
-import { User } from "../interfaces/user.interface";
+import type { ReactiveController, ReactiveControllerHost } from "lit";
+import type { User } from "../interfaces/user.interface";
 import { USER_CHANGE_EVENT, USER_KEY } from "../providers/user.provider";
 
 export class UserController implements ReactiveController {
@@ -28,7 +28,7 @@ export class UserController implements ReactiveController {
       const response = await fetch(`http://localhost:4000/api?key=${user.key}`, {
         // headers: { Authorization: `Bearer ${key}` }
       });
-      
+
       if (!response.ok) throw new Error("Session expired");
       const fullUserData = await response.json();
 
@@ -37,7 +37,7 @@ export class UserController implements ReactiveController {
       // Only consider the user signed in once the API confirms they exist.
       if (!resolved.name) throw new Error("User not found");
 
-      localStorage.setItem(USER_KEY, user.key);
+      if (user.key) localStorage.setItem(USER_KEY, user.key);
       this.dispatch(resolved);
       return resolved;
     } catch (error) {
@@ -49,7 +49,7 @@ export class UserController implements ReactiveController {
   }
 
   public guest(name: string) {
-    this.dispatch({ key: "", name, isGuest: true });
+    this.dispatch({ name, isGuest: true });
   }
 
   public logout() {

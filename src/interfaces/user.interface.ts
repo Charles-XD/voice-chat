@@ -1,5 +1,5 @@
 export interface User {
-  key: string;
+  key?: string;
   loading?: boolean;
   name?: string;
   isHost?: boolean;

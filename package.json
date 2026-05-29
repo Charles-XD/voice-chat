@@ -4,7 +4,12 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "dev": "vite"
+    "dev": "vite",
+    "lint": "biome lint ./src",
+    "lint:fix": "biome lint --write ./src",
+    "format": "biome format --write ./src",
+    "check": "biome check ./src",
+    "check:fix": "biome check --write ./src"
   },
   "dependencies": {
     "@lit-labs/router": "^0.1.4",
@@ -15,6 +20,7 @@
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
     "@types/node": "^18.11.19",
     "vite": "^4.1.1"
   }

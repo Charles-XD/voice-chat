@@ -1,15 +1,17 @@
-import { LitElement, html } from "lit";
+import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { SocketConnectionStatus, socketService } from "../_services/socket.service";
+import { type SocketConnectionStatus, socketService } from "../_services/socket.service";
 
 import styles from "./styles";
 
-@customElement('app-connection-status')
+@customElement("app-connection-status")
 export class ConnectionStatus extends LitElement {
   static styles = styles;
 
   @state()
-  private status: SocketConnectionStatus = socketService.socket.connected ? "connected" : "connecting";
+  private status: SocketConnectionStatus = socketService.socket.connected
+    ? "connected"
+    : "connecting";
 
   @state()
   private latency = 0;

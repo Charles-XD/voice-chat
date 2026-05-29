@@ -1,9 +1,8 @@
-import { LitElement, html } from "lit";
-import { customElement } from "lit/decorators.js";
 import { Router } from "@lit-labs/router";
-
-import { tokens } from "./styles/tokens.styles";
+import { html, LitElement } from "lit";
+import { customElement } from "lit/decorators.js";
 import styles from "./app.router.styles";
+import { tokens } from "./styles/tokens.styles";
 
 import "./pages/403/403.page";
 import "./pages/404/404.page";
@@ -13,12 +12,13 @@ import "./pages/room/room.page";
 import "./app";
 
 import { consume } from "@lit/context";
-import { userContext } from "./providers/user.provider";
-import { User } from "./interfaces/user.interface";
-import { authGuard } from "./guards/auth.guard";
-import { UserController } from "./controllers/user.controller";
-import { logger } from "./components/app/_services/logger.service";
 import { state } from "lit/decorators.js";
+import { logger } from "./components/app/_services/logger.service";
+import { UserController } from "./controllers/user.controller";
+import { canUseKeyFeatures, isAuthenticated } from "./guards/access";
+import { authGuard, keyGuard } from "./guards/auth.guard";
+import type { User } from "./interfaces/user.interface";
+import { userContext } from "./providers/user.provider";
 
 @customElement("app-router")
 class AppRouter extends LitElement {
@@ -45,12 +45,12 @@ class AppRouter extends LitElement {
     {
       path: "/profile",
       render: () => html`<profile-page></profile-page>`,
-      enter: (): boolean => authGuard(this.router, this.user),
+      enter: (): boolean => keyGuard(this.router, this.user),
     },
     {
       path: "/voice",
       render: () => html`<voice-app></voice-app>`,
-      enter: (): boolean => authGuard(this.router, this.user),
+      enter: (): boolean => keyGuard(this.router, this.user),
     },
     {
       path: "/403",
@@ -99,9 +99,8 @@ class AppRouter extends LitElement {
         <div class="nav-left">
           <div class="nav-links">
             <a href="/">Home</a>
-            ${this.user?.key
-              ? html`<a href="/profile">Profile</a> <a href="/room/join">Join</a>`
-              : ""}
+            ${isAuthenticated(this.user) ? html`<a href="/room/join">Join</a>` : ""}
+            ${canUseKeyFeatures(this.user) ? html`<a href="/profile">Profile</a>` : ""}
           </div>
         </div>
         <div class="nav-right">
@@ -112,8 +111,9 @@ class AppRouter extends LitElement {
             aria-label=${this.theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
             title=${this.theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
           >
-            ${this.theme === "dark"
-              ? html`<svg
+            ${
+              this.theme === "dark"
+                ? html`<svg
                   viewBox="0 0 24 24"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
@@ -127,7 +127,7 @@ class AppRouter extends LitElement {
                     stroke-linejoin="round"
                   />
                 </svg>`
-              : html`<svg
+                : html`<svg
                   viewBox="0 0 24 24"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
@@ -147,15 +147,18 @@ class AppRouter extends LitElement {
                     stroke-linecap="round"
                     stroke-linejoin="round"
                   />
-                </svg>`}
+                </svg>`
+            }
           </button>
 
-          ${this.user?.key
-            ? html`<div class="user-info">
+          ${
+            isAuthenticated(this.user)
+              ? html`<div class="user-info">
                 <app-connection-status></app-connection-status>
                 <ui-button @onClick=${this.handleLogout}>Logout</ui-button>
               </div>`
-            : ""}
+              : ""
+          }
         </div>
       </nav>
 

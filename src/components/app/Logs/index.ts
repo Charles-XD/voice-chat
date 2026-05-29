@@ -1,10 +1,9 @@
 import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { createRef, ref } from "lit/directives/ref.js";
-import { type Log, logger } from "../_services/logger.service";
-
-import styles from "./styles";
 import { AutoScrollController } from "../../ui/_controllers/AutoScroll.controller";
+import { type Log, logger } from "../_services/logger.service";
+import styles from "./styles";
 
 @customElement("app-logs")
 export class Logs extends LitElement {

@@ -1,9 +1,9 @@
+import { consume } from "@lit/context";
 import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { type RoomState, roomContext } from "../../_context/room.context";
 import { logger } from "../../_services/logger.service";
 import { socketService } from "../../_services/socket.service";
-import { consume } from "@lit/context";
-import { roomContext, RoomState } from "../../_context/room.context";
 
 @customElement("app-room-join")
 export class RoomJoin extends LitElement {
@@ -63,9 +63,11 @@ export class RoomJoin extends LitElement {
           .value=${this.roomName}
           @onChange=${this.handleRoomNameChange}
         ></ui-textfield>
-        ${this.room?.name
-          ? html`<ui-button @onClick=${this.handleLeaveRoom}>Leave</ui-button>`
-          : html`<ui-button @onClick=${this.handleJoinRoom}>Join</ui-button>`}
+        ${
+          this.room?.name
+            ? html`<ui-button @onClick=${this.handleLeaveRoom}>Leave</ui-button>`
+            : html`<ui-button @onClick=${this.handleJoinRoom}>Join</ui-button>`
+        }
       </div>
     `;
   }

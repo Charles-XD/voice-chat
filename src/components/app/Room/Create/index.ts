@@ -1,7 +1,6 @@
 import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { socketService } from "../../_services/socket.service";
-import { routerService } from "../../_services/router.service";
 
 import styles from "./styles";
 

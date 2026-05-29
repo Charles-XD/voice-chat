@@ -1,12 +1,5 @@
 import { css } from "lit";
 
-/**
- * Shared design tokens.
- *
- * Applied on the `app-router` host (which carries the `data-theme` attribute),
- * so every component rendered inside its shadow tree inherits these custom
- * properties. The light-theme block overrides the dark defaults.
- */
 export const tokens = css`
   :host {
     /* Dark theme tokens (aligned with app-logs) */

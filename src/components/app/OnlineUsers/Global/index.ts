@@ -1,9 +1,8 @@
 import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-
-import styles from "./styles";
-import { socketService } from "../../_services/socket.service";
 import { logger } from "../../_services/logger.service";
+import { socketService } from "../../_services/socket.service";
+import styles from "./styles";
 
 @customElement("app-online-users-global")
 export class GlobalUsers extends LitElement {
@@ -22,13 +21,13 @@ export class GlobalUsers extends LitElement {
     socketService.socket.on("user-count-update", (data) => {
       logger.log("INFO", `Online users count: ${data}`);
       this.users = [data];
-    })
+    });
   }
 
   override render() {
     return html`
       <p>Users</p>
-      <div>${this.users.map(user => html`<p>${user}</p>`)}</div>
+      <div>${this.users.map((user) => html`<p>${user}</p>`)}</div>
     `;
   }
 }

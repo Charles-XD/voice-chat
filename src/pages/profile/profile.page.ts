@@ -1,9 +1,8 @@
+import { consume } from "@lit/context";
 import { html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
 
-import { consume } from "@lit/context";
-
-import { User } from "../../interfaces/user.interface";
+import type { User } from "../../interfaces/user.interface";
 import { userContext } from "../../providers/user.provider";
 
 @customElement("profile-page")

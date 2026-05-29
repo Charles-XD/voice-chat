@@ -1,9 +1,8 @@
-import { ContextProvider, provide } from "@lit/context";
-import { LitElement, html } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
-import { roomContext, RoomState } from "./components/app/_context/room.context";
-
+import { provide } from "@lit/context";
+import { html, LitElement } from "lit";
+import { customElement, state } from "lit/decorators.js";
 import styles from "./app.styles";
+import { type RoomState, roomContext } from "./components/app/_context/room.context";
 
 @customElement("voice-app")
 export class App extends LitElement {
@@ -18,23 +17,16 @@ export class App extends LitElement {
   connectedCallback() {
     super.connectedCallback();
 
-    this.addEventListener(
-      "room-change",
-      this.handleRoomChange as EventListener,
-    );
+    this.addEventListener("room-change", this.handleRoomChange as EventListener);
   }
 
   disconnectedCallback() {
-    this.removeEventListener(
-      "room-change",
-      this.handleRoomChange as EventListener,
-    );
+    this.removeEventListener("room-change", this.handleRoomChange as EventListener);
 
     super.disconnectedCallback();
   }
 
   private handleRoomChange = (e: CustomEvent<{ name: string }>) => {
-    // Replace object reference
     this.room = {
       ...this.room,
       name: e.detail.name,

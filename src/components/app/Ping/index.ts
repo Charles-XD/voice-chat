@@ -1,9 +1,9 @@
-import { LitElement, html } from "lit";
+import { html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
 import styles from "./styles";
 
-@customElement('app-ping')
+@customElement("app-ping")
 export class Ping extends LitElement {
   static styles = styles;
 
@@ -32,9 +32,7 @@ export class Ping extends LitElement {
   override render() {
     const quality = this.connected ? this.getQuality() : "bad";
     const bars = this.getBars();
-    const label = this.connected
-      ? `Connection ${quality} (${this.latency} ms)`
-      : "Disconnected";
+    const label = this.connected ? `Connection ${quality} (${this.latency} ms)` : "Disconnected";
 
     return html`
       <span

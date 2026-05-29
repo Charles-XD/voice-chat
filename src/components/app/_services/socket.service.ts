@@ -1,11 +1,7 @@
-import { io, Socket } from "socket.io-client";
+import { io, type Socket } from "socket.io-client";
 import { logger } from "./logger.service";
 
-export type SocketConnectionStatus =
-  | "connecting"
-  | "connected"
-  | "reconnecting"
-  | "disconnected";
+export type SocketConnectionStatus = "connecting" | "connected" | "reconnecting" | "disconnected";
 
 class SocketService {
   socket: Socket;
@@ -36,7 +32,7 @@ class SocketService {
       this.stopPing();
       this.setStatus("disconnected");
       this.emit(false);
-      logger.log("ERROR", "Disconnected.")
+      logger.log("ERROR", "Disconnected.");
     });
 
     this.socket.io.on("reconnect_attempt", () => {
@@ -76,11 +72,15 @@ class SocketService {
   }
 
   private emit(connected: boolean) {
-    this.listeners.forEach((l) => l(connected, this.latency));
+    this.listeners.forEach((l) => {
+      l(connected, this.latency);
+    });
   }
 
   private emitStatus() {
-    this.statusListeners.forEach((l) => l(this.status, this.latency));
+    this.statusListeners.forEach((l) => {
+      l(this.status, this.latency);
+    });
   }
 
   private setStatus(next: SocketConnectionStatus) {

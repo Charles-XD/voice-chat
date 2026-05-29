@@ -29,6 +29,21 @@ export default css`
     background: var(--app-surface);
   }
 
+  .card.guest {
+    max-width: 460px;
+    text-align: center;
+  }
+
+  .card.guest h2 {
+    margin: 0 0 8px;
+    font-size: 18px;
+  }
+
+  .card.guest ui-button {
+    display: inline-block;
+    margin-top: 8px;
+  }
+
   .grid {
     display: grid;
     grid-template-columns: 1fr auto 1fr;

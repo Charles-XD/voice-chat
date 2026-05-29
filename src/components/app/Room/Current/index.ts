@@ -1,8 +1,8 @@
+import { consume } from "@lit/context";
 import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { consume } from "@lit/context";
 
-import { roomContext, RoomState } from "../../_context/room.context";
+import { type RoomState, roomContext } from "../../_context/room.context";
 
 @customElement("app-current-room")
 export class CurrentRoom extends LitElement {

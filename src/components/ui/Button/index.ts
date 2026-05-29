@@ -1,9 +1,9 @@
-import { LitElement, html } from "lit";
+import { html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
 
 import styles from "./styles";
 
-@customElement('ui-button')
+@customElement("ui-button")
 export class Button extends LitElement {
   static styles = styles;
 
@@ -16,18 +16,18 @@ export class Button extends LitElement {
     if (this.disabled || this.loading) return;
 
     this.dispatchEvent(
-      new CustomEvent('onClick', {
+      new CustomEvent("onClick", {
         detail: { originalEvent: e },
         bubbles: true,
         composed: true,
-      })
+      }),
     );
 
-    if (this.type === 'submit') {
-      const form = this.closest('form');
+    if (this.type === "submit") {
+      const form = this.closest("form");
       if (form) {
         // requestSubmit() respects HTML5 form validation and fires the onSubmit event
-        form.requestSubmit(); 
+        form.requestSubmit();
       }
     }
   }
@@ -49,11 +49,11 @@ export class Button extends LitElement {
   override render() {
     return html`
       <button
-        class="${this.color}${this.loading ? ' loading' : ''}"
+        class="${this.color}${this.loading ? " loading" : ""}"
         part="button"
         type=${this.type}
         ?disabled=${this.disabled || this.loading}
-        aria-busy=${this.loading ? 'true' : 'false'}
+        aria-busy=${this.loading ? "true" : "false"}
         @click=${this.handleClick}
       >
         ${this.loading ? this.renderComet() : null}
