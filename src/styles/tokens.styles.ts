@@ -20,6 +20,8 @@ export const tokens = css`
     --app-link: #93c5fd;
     --app-focus: rgba(147, 197, 253, 0.35);
     --app-hover: rgba(148, 163, 184, 0.12);
+    --app-danger: #f87171;
+    --app-danger-focus: rgba(239, 68, 68, 0.35);
 
     /* Shared component tokens */
     --ui-button-bg: #3b82f6;
@@ -72,6 +74,8 @@ export const tokens = css`
     --app-link: #2563eb;
     --app-focus: rgba(59, 130, 246, 0.25);
     --app-hover: rgba(15, 23, 42, 0.06);
+    --app-danger: #dc2626;
+    --app-danger-focus: rgba(220, 38, 38, 0.25);
 
     --signal-off: #cbd5e1;
 

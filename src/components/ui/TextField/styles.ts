@@ -6,6 +6,15 @@ export default css`
     box-sizing: border-box;
   }
 
+  .label {
+    display: block;
+    margin-bottom: 6px;
+    margin-left: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--app-text);
+  }
+
   input {
     width: 100%;
     box-sizing: border-box;
@@ -38,5 +47,21 @@ export default css`
     cursor: not-allowed;
     opacity: 0.65;
     background: color-mix(in oklab, var(--app-surface) 80%, var(--app-bg));
+  }
+
+  input.invalid {
+    border-color: var(--app-danger);
+  }
+
+  input.invalid:focus-visible {
+    border-color: var(--app-danger);
+    box-shadow: 0 0 0 3px var(--app-danger-focus);
+  }
+
+  .error {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--app-danger);
   }
 `;

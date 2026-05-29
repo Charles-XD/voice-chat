@@ -42,7 +42,12 @@ export class UserProvider extends LitElement {
       this.user = { ...this.user, key, ...fullUserData, loading: false };
     } catch (error) {
       console.error("Failed to hydrate user session:", error);
+      localStorage.removeItem(USER_KEY);
       this.user = null;
+
+      if (window.location.pathname !== "/") {
+        window.location.replace("/");
+      }
     }
   }
 

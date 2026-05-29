@@ -13,7 +13,9 @@ export class HomePage extends LitElement {
   static styles = styles;
 
   @state() private apiKey: string = "";
-  @state() private remember: boolean = false;
+  @state() private guestName: string = "";
+  @state() private keyError: string = "";
+  @state() private nameError: string = "";
 
   @consume({ context: userContext, subscribe: true })
   @state()
@@ -32,60 +34,103 @@ export class HomePage extends LitElement {
     );
   }
 
-  private async handleEnterClick(e: Event) {
+  private async handleEnterSubmit(e: Event) {
     e.preventDefault();
 
     const key = this.apiKey.trim();
-    if (key.length === 0) return;
+    if (key.length === 0) {
+      this.keyError = "Key is required.";
+      return;
+    }
+    this.keyError = "";
 
-    await this.userController.login({ key }, this.remember);
+    await this.userController.login({ key });
+    this.resetForms();
     this.handleUserNavigation();
   }
 
-  private handleGuestClick(e: Event) {
+  private handleGuestSubmit(e: Event) {
     e.preventDefault();
+
+    const name = this.guestName.trim();
+    if (name.length === 0) {
+      this.nameError = "Name is required.";
+      return;
+    }
+    this.nameError = "";
+
+    this.userController.guest(name);
+    this.resetForms();
     this.handleUserNavigation();
   }
 
-  private handleRememberChange(e: Event) {
-    this.remember = (e.target as HTMLInputElement).checked;
+  private resetForms() {
+    this.apiKey = "";
+    this.guestName = "";
+    this.keyError = "";
+    this.nameError = "";
   }
 
-  private handleKeyChange(e: Event) {
-    this.apiKey = (e.target as HTMLInputElement).value;
+  private handleKeyChange(e: CustomEvent<string>) {
+    this.apiKey = e.detail;
+    if (this.keyError) this.keyError = "";
+  }
+
+  private handleNameChange(e: CustomEvent<string>) {
+    this.guestName = e.detail;
+    if (this.nameError) this.nameError = "";
   }
 
   render() {
-    return this.user?.loading
-      ? html`Loading User ...`
-      : this.user?.key
-        ? html` <app-room-create></app-room-create>`
-        : html`
-            <h1>Collab Voice</h1>
-            <p class="subtitle">Enter your <strong>KEY</strong> to start.</p>
-            <form @submit=${this.handleEnterClick}>
+    if (this.user?.loading) return html`Loading User ...`;
+    if (this.user?.key) return html`<app-room-create></app-room-create>`;
+
+    return html`
+      <h1 class="title">Collab Voice</h1>
+
+      <div class="card">
+        <div class="grid">
+          <section class="col">
+            <h2>Sign in with your key</h2>
+
+            <form @submit=${this.handleEnterSubmit} novalidate>
               <ui-textfield
-                class="textfield"
+                label="Key"
+                placeholder="Enter your key"
+                required
                 .value=${this.apiKey}
+                .error=${this.keyError}
                 @onChange=${this.handleKeyChange}
               ></ui-textfield>
 
-              <div class="remember">
-                <input
-                  type="checkbox"
-                  id="remember"
-                  .checked=${this.remember}
-                  @change=${this.handleRememberChange}
-                />
-                <label for="remember">Remember me</label>
-              </div>
-
+              <div class="spacer"></div>
               <ui-button type="submit">Start</ui-button>
-              <span class="or">or</span>
-              <ui-button @onClick=${this.handleGuestClick}
-                >Guest Mode</ui-button
-              >
             </form>
-          `;
+          </section>
+
+          <div class="divider" role="separator" aria-orientation="vertical">
+            <span>or</span>
+          </div>
+
+          <section class="col">
+            <h2>Continue as guest with a name</h2>
+
+            <form @submit=${this.handleGuestSubmit} novalidate>
+              <ui-textfield
+                label="Name"
+                placeholder="Enter your name"
+                required
+                .value=${this.guestName}
+                .error=${this.nameError}
+                @onChange=${this.handleNameChange}
+              ></ui-textfield>
+
+              <div class="spacer"></div>
+              <ui-button type="submit">Continue as Guest</ui-button>
+            </form>
+          </section>
+        </div>
+      </div>
+    `;
   }
 }
