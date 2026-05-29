@@ -2,7 +2,7 @@ import { css } from 'lit';
 
 export default css`
   .logs {
-    font-family: monospace;
+    font-family: var(--app-font);
     padding: 12px;
     background: #0f172a;
     color: #e5e7eb;

@@ -1,31 +1,13 @@
-import { css, CSSResultGroup, html, LitElement } from "lit";
+import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { socketService } from "../../_services/socket.service";
 import { routerService } from "../../_services/router.service";
 
+import styles from "./styles";
+
 @customElement("app-room-create")
 export class RoomCreate extends LitElement {
-  static styles?: CSSResultGroup = css`
-    :host {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .subtitle {
-      color: var(--app-muted, #94a3b8);
-      margin-bottom: 8px;
-    }
-
-    .key-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .textfield {
-      width: 100%;
-    }
-  `;
+  static styles = styles;
 
   @property({ attribute: false })
   @state()

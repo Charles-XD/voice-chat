@@ -1,53 +1,16 @@
 import { consume } from "@lit/context";
-import { CSSResultGroup, LitElement, css, html } from "lit";
+import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { userContext } from "../../providers/user.provider";
 import { User } from "../../interfaces/user.interface";
 import { UserController } from "../../controllers/user.controller";
 import { routerService } from "../../components/app/_services/router.service";
 
+import styles from "./styles";
+
 @customElement("home-page")
 export class HomePage extends LitElement {
-  static styles?: CSSResultGroup = css`
-    :host {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .subtitle {
-      color: var(--app-muted, #94a3b8);
-      margin-bottom: 8px;
-    }
-
-    .textfield {
-      width: 100%;
-    }
-
-    .remember {
-      align-items: center;
-      display: flex;
-      margin: 8px 0px;
-    }
-    .remember label {
-      font-size: 13px;
-      color: var(--app-text, #e5e7eb);
-    }
-
-    ui-button {
-      width: 100%;
-      display: block;
-    }
-
-    ui-button::part(button) {
-      width: 100%;
-      margin: 8px 0px;
-    }
-
-    .or {
-      display: block;
-      text-align: center;
-    }
-  `;
+  static styles = styles;
 
   @state() private apiKey: string = "";
   @state() private remember: boolean = false;

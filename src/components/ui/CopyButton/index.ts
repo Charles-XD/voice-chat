@@ -1,61 +1,11 @@
-import { css, CSSResultGroup, html, LitElement } from "lit";
+import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+
+import styles from "./styles";
 
 @customElement("ui-copy-button")
 export class CopyButton extends LitElement {
-  static styles?: CSSResultGroup = css`
-    :host {
-      display: inline-block;
-    }
-
-    button {
-      appearance: none;
-      -webkit-tap-highlight-color: transparent;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-
-      width: 34px;
-      height: 34px;
-      padding: 0;
-      border-radius: 999px;
-
-      border: 1px solid var(--app-border, #334155);
-      background: color-mix(in oklab, var(--app-surface, #1e293b) 70%, transparent);
-      color: var(--app-text, #e5e7eb);
-
-      cursor: pointer;
-      transition:
-        background-color 140ms ease,
-        border-color 140ms ease,
-        box-shadow 140ms ease,
-        transform 80ms ease;
-    }
-
-    button:hover:not(:disabled) {
-      background: var(--app-hover, rgba(148, 163, 184, 0.12));
-    }
-
-    button:active:not(:disabled) {
-      transform: translateY(0.5px);
-    }
-
-    button:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 3px var(--app-focus, rgba(147, 197, 253, 0.35));
-    }
-
-    button:disabled {
-      cursor: not-allowed;
-      opacity: 0.55;
-    }
-
-    svg {
-      width: 18px;
-      height: 18px;
-      display: block;
-    }
-  `;
+  static styles = styles;
 
   @property({ type: String })
   value = "";

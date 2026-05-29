@@ -1,52 +1,13 @@
 import { ContextProvider, provide } from "@lit/context";
-import { LitElement, css, html } from "lit";
+import { LitElement, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { roomContext, RoomState } from "./components/app/_context/room.context";
 
+import styles from "./app.styles";
+
 @customElement("voice-app")
 export class App extends LitElement {
-  static styles = css`
-    :host {
-      display: flex;
-      flex-direction: column;
-      flex-grow: 1;
-      min-height: 0;
-    }
-
-    .layout {
-      display: flex;
-      flex: 1;
-      gap: 16px;
-      min-height: 0;
-    }
-
-    .main {
-      display: flex;
-      flex-direction: column;
-      flex: 1 1 auto;
-      min-width: 0;
-      min-height: 0;
-    }
-
-    .logs {
-      flex: 0 0 30%;
-      max-width: 30%;
-      min-width: 320px;
-      min-height: 0;
-    }
-
-    @media (max-width: 900px) {
-      .layout {
-        flex-direction: column;
-      }
-
-      .logs {
-        flex: 0 0 auto;
-        max-width: 100%;
-        min-width: 0;
-      }
-    }
-  `;
+  static styles = styles;
 
   @provide({ context: roomContext })
   @state()
