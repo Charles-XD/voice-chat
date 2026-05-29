@@ -23,9 +23,8 @@ export class UserController implements ReactiveController {
     );
   }
 
-  public async login(user: User) {
+  public async login(user: User): Promise<User | null> {
     try {
-      this.dispatch({ ...user, loading: true });
       const response = await fetch(`http://localhost:4000/api?key=${user.key}`, {
         // headers: { Authorization: `Bearer ${key}` }
       });
@@ -33,13 +32,19 @@ export class UserController implements ReactiveController {
       if (!response.ok) throw new Error("Session expired");
       const fullUserData = await response.json();
 
-      localStorage.setItem(USER_KEY, user.key);
+      const resolved: User = { ...user, ...fullUserData, loading: false };
 
-      this.dispatch({ ...user, ...fullUserData, loading: false });
+      // Only consider the user signed in once the API confirms they exist.
+      if (!resolved.name) throw new Error("User not found");
+
+      localStorage.setItem(USER_KEY, user.key);
+      this.dispatch(resolved);
+      return resolved;
     } catch (error) {
       console.error("Failed to hydrate user session:", error);
       localStorage.removeItem(USER_KEY);
       this.dispatch(null);
+      return null;
     }
   }
 

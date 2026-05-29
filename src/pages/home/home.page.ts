@@ -16,6 +16,7 @@ export class HomePage extends LitElement {
   @state() private guestName: string = "";
   @state() private keyError: string = "";
   @state() private nameError: string = "";
+  @state() private submitting: boolean = false;
 
   @consume({ context: userContext, subscribe: true })
   @state()
@@ -44,7 +45,20 @@ export class HomePage extends LitElement {
     }
     this.keyError = "";
 
-    await this.userController.login({ key });
+    this.submitting = true;
+    let resolved: User | null = null;
+    try {
+      resolved = await this.userController.login({ key });
+    } finally {
+      this.submitting = false;
+    }
+
+    // Only proceed once the API confirms the user exists.
+    if (!resolved?.name) {
+      this.keyError = "Invalid key or user not found.";
+      return;
+    }
+
     this.resetForms();
     this.handleUserNavigation();
   }
@@ -82,8 +96,12 @@ export class HomePage extends LitElement {
   }
 
   render() {
-    if (this.user?.loading) return html`Loading User ...`;
-    if (this.user?.key) return html`<app-room-create></app-room-create>`;
+    // While submitting, keep showing the form so the loading button is visible
+    // and we don't swap to <app-room-create> before the fetch resolves.
+    if (!this.submitting) {
+      if (this.user?.loading) return html`Loading User ...`;
+      if (this.user?.key) return html`<app-room-create></app-room-create>`;
+    }
 
     return html`
       <h1 class="title">Collab Voice</h1>
@@ -104,7 +122,7 @@ export class HomePage extends LitElement {
               ></ui-textfield>
 
               <div class="spacer"></div>
-              <ui-button type="submit">Start</ui-button>
+              <ui-button type="submit" ?loading=${this.submitting}>Start</ui-button>
             </form>
           </section>
 
