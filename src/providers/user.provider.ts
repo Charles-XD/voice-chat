@@ -1,5 +1,5 @@
 import { createContext, provide } from "@lit/context";
-import { html, LitElement } from "lit";
+import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import type { User } from "../interfaces/user.interface";
 
@@ -9,6 +9,14 @@ export const USER_KEY = "userKey";
 
 @customElement("user-provider")
 export class UserProvider extends LitElement {
+  // Owns its layout so callers don't need an external `.main` class.
+  static styles = css`
+    :host {
+      display: flex;
+      flex-grow: 1;
+    }
+  `;
+
   private userKey = localStorage.getItem(USER_KEY);
 
   @provide({ context: userContext })

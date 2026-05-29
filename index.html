@@ -9,8 +9,10 @@
     <script type="module" src="/src/index.ts"></script>
   </head>
   <body>
-    <user-provider class="main">
-      <app-router></app-router>
+    <user-provider>
+      <settings-provider>
+        <app-router></app-router>
+      </settings-provider>
     </user-provider>
   </body>
 </html>

@@ -14,8 +14,3 @@ body {
   margin: 0;
   display: flex;
 }
-
-.main {
-  display: flex;
-  flex-grow: 1;
-}

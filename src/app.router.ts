@@ -10,6 +10,7 @@ import "./pages/home/home.page";
 import "./pages/join/join.page";
 import "./pages/profile/profile.page";
 import "./pages/room/room.page";
+import "./pages/settings/settings.page";
 import "./app";
 
 import { consume } from "@lit/context";
@@ -53,6 +54,11 @@ class AppRouter extends LitElement {
       path: "/profile",
       render: () => html`<profile-page></profile-page>`,
       enter: (): boolean => keyGuard(this.router, this.user),
+    },
+    {
+      path: "/settings",
+      render: () => html`<settings-page></settings-page>`,
+      enter: (): boolean => authGuard(this.router, this.user),
     },
     {
       path: "/voice",
@@ -111,8 +117,24 @@ class AppRouter extends LitElement {
           </div>
         </div>
         <div class="nav-right">
+          ${
+            isAuthenticated(this.user)
+              ? html`<a class="icon-button" href="/settings" aria-label="Settings" title="Settings">
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" />
+                    <path
+                      d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </a>`
+              : ""
+          }
           <button
-            class="theme-toggle"
+            class="icon-button"
             type="button"
             @click=${this.toggleTheme}
             aria-label=${this.theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}

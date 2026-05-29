@@ -79,7 +79,7 @@ export default css`
     flex-wrap: wrap;
   }
 
-  .theme-toggle {
+  .icon-button {
     appearance: none;
     -webkit-tap-highlight-color: transparent;
     display: inline-flex;
@@ -98,18 +98,19 @@ export default css`
     line-height: 1;
     cursor: pointer;
     user-select: none;
+    text-decoration: none;
   }
 
-  .theme-toggle:hover {
+  .icon-button:hover {
     background: var(--app-hover);
   }
 
-  .theme-toggle:focus-visible {
+  .icon-button:focus-visible {
     outline: none;
     box-shadow: 0 0 0 3px var(--app-focus);
   }
 
-  .theme-toggle svg {
+  .icon-button svg {
     width: 18px;
     height: 18px;
     display: block;
