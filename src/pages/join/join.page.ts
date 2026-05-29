@@ -106,7 +106,7 @@ export class JoinPage extends LitElement {
     if (isGuest(this.user)) {
       return this.renderForm({
         title: "Request to join",
-        subtitle: html`Hey ${name}, request to join the room below. The host will
+        subtitle: html`Hey ${name}, request to join the conversation. The host will
         need to admit you before you can enter.`,
         buttonLabel: "Request to join",
         onSubmit: this.handleRequest,
