@@ -66,8 +66,8 @@ export const tokens = css`
   :host([data-theme="light"]) {
     color-scheme: light;
     --app-bg: #f8fafc;
-    --app-surface: #ffffff;
-    --app-surface-2: #ffffff;
+    --app-surface: #eef2f7;
+    --app-surface-2: #f1f5f9;
     --app-border: #e5e7eb;
     --app-text: #0f172a;
     --app-muted: #64748b;

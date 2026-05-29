@@ -49,6 +49,11 @@ export default css`
     opacity: 0.55;
   }
 
+  button.copied {
+    color: var(--status-connected-dot);
+    border-color: var(--status-connected-border);
+  }
+
   svg {
     width: 18px;
     height: 18px;

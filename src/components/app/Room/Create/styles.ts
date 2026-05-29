@@ -20,4 +20,12 @@ export default css`
   .textfield {
     width: 100%;
   }
+
+  ui-button {
+    display: block;
+  }
+
+  ui-button::part(button) {
+    width: 100%;
+  }
 `;

@@ -55,7 +55,7 @@ export class HomePage extends LitElement {
 
     // Only proceed once the API confirms the user exists.
     if (!resolved?.name) {
-      this.keyError = "Invalid key or user not found.";
+      this.keyError = "Invalid key.";
       return;
     }
 
