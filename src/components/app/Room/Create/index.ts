@@ -26,10 +26,10 @@ export class RoomCreate extends LitElement {
   }
 
   handleStartVoiceChat() {
-    const url = "/voice";
+    if (!this.roomName) return;
     this.dispatchEvent(
       new CustomEvent("navigate", {
-        detail: `${url}`,
+        detail: `/voice/${encodeURIComponent(this.roomName)}`,
         bubbles: true,
         composed: true,
       }),

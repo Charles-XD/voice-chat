@@ -15,6 +15,21 @@ export default css`
     min-height: 0;
   }
 
+  .status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex: 1;
+    color: var(--app-muted);
+    font-size: 14px;
+  }
+
+  .status.error {
+    color: var(--app-text);
+  }
+
   .main {
     display: flex;
     flex-direction: column;

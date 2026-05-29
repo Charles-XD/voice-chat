@@ -56,9 +56,10 @@ class AppRouter extends LitElement {
       enter: (): boolean => authGuard(this.router, this.user),
     },
     {
-      path: "/voice",
-      render: () => html`<voice-app></voice-app>`,
-      enter: (): boolean => keyGuard(this.router, this.user),
+      path: "/voice/:id",
+      render: ({ id }) =>
+        html`<voice-app roomId=${id ?? ""} @navigate=${this.onNavigate}></voice-app>`,
+      enter: (): boolean => authGuard(this.router, this.user),
     },
     {
       path: "/403",

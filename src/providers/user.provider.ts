@@ -1,6 +1,7 @@
 import { createContext, provide } from "@lit/context";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { getUser } from "../api";
 import type { User } from "../interfaces/user.interface";
 
 export const userContext = createContext<User | null>(Symbol("user-context"));
@@ -40,12 +41,9 @@ export class UserProvider extends LitElement {
   private async _hydrateUser(key: string) {
     try {
       this.user = { ...this.user, key, loading: true };
-      const response = await fetch(`http://localhost:4000/api?key=${key}`);
+      const data = await getUser(key);
 
-      if (!response.ok) throw new Error("Session expired");
-      const fullUserData = await response.json();
-
-      this.user = { ...this.user, key, ...fullUserData, loading: false };
+      this.user = { ...this.user, key, name: data.name ?? undefined, loading: false };
     } catch (error) {
       console.error("Failed to hydrate user session:", error);
       localStorage.removeItem(USER_KEY);

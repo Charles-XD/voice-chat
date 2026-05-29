@@ -1,4 +1,5 @@
 import type { ReactiveController, ReactiveControllerHost } from "lit";
+import { getUser, updateUserName } from "../api";
 import type { User } from "../interfaces/user.interface";
 import { USER_CHANGE_EVENT, USER_KEY } from "../providers/user.provider";
 
@@ -25,19 +26,15 @@ export class UserController implements ReactiveController {
 
   public async login(user: User): Promise<User | null> {
     try {
-      const response = await fetch(`http://localhost:4000/api?key=${user.key}`, {
-        // headers: { Authorization: `Bearer ${key}` }
-      });
+      if (!user.key) throw new Error("Missing key");
+      const data = await getUser(user.key);
 
-      if (!response.ok) throw new Error("Session expired");
-      const fullUserData = await response.json();
-
-      const resolved: User = { ...user, ...fullUserData, loading: false };
+      const resolved: User = { ...user, name: data.name ?? undefined, loading: false };
 
       // Only consider the user signed in once the API confirms they exist.
       if (!resolved.name) throw new Error("User not found");
 
-      if (user.key) localStorage.setItem(USER_KEY, user.key);
+      localStorage.setItem(USER_KEY, user.key);
       this.dispatch(resolved);
       return resolved;
     } catch (error) {
@@ -57,16 +54,9 @@ export class UserController implements ReactiveController {
     if (!key) return null;
 
     try {
-      const response = await fetch("http://localhost:4000/api/name", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, name }),
-      });
+      const data = await updateUserName(key, name);
 
-      if (!response.ok) throw new Error("Failed to update name");
-      const data = await response.json();
-
-      const resolved: User = { key, name: data.name };
+      const resolved: User = { key, name: data.name ?? undefined };
       this.dispatch(resolved);
       return resolved;
     } catch (error) {

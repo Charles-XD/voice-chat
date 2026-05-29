@@ -57,7 +57,7 @@ export class JoinPage extends LitElement {
     if (!id) return;
 
     // TODO: send a join request and wait for host admission.
-    this.navigate(`/room/${encodeURIComponent(id)}`);
+    this.navigate(`/voice/${encodeURIComponent(id)}`);
   }
 
   private handleJoin(e: Event) {
@@ -65,7 +65,7 @@ export class JoinPage extends LitElement {
     const id = this.validateRoomId();
     if (!id) return;
 
-    this.navigate(`/room/${encodeURIComponent(id)}`);
+    this.navigate(`/voice/${encodeURIComponent(id)}`);
   }
 
   private renderForm({

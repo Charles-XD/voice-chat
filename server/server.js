@@ -197,6 +197,16 @@ app.post('/api/name', (req, res) => {
   });
 });
 
+// Checks whether the requesting user may join a room.
+// TODO: add real validation (room existence, membership, host admission, etc.).
+// For now everyone is allowed to join.
+app.get('/api/rooms/:roomId/can-join', (req, res) => {
+  const { roomId } = req.params;
+  if (!roomId) return res.status(400).send("BAD_REQUEST");
+
+  res.send({ allowed: true });
+});
+
 app.listen(4000, () => {
   console.log('API is running...')
 });

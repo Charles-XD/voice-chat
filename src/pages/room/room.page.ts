@@ -2,6 +2,7 @@ import { consume } from "@lit/context";
 import { Task } from "@lit/task";
 import { html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import { getUser } from "../../api";
 import { hasKey, isGuest } from "../../guards/access";
 import type { User } from "../../interfaces/user.interface";
 import { userContext } from "../../providers/user.provider";
@@ -19,11 +20,7 @@ export class RoomPage extends LitElement {
     ([user]) => {
       if (!user?.key) return user;
       if (user?.key && user?.name) return user;
-      return fetch(`http://localhost:4000/api?key=${user?.key}`).then((response) => {
-        return response.json().then((user) => {
-          return user;
-        });
-      });
+      return getUser(user.key).then((data) => ({ ...user, name: data.name ?? undefined }));
     },
     () => [this.user],
   );
