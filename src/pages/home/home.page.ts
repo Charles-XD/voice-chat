@@ -81,8 +81,6 @@ export class HomePage extends LitElement {
 
     this.userController.guest(name);
     this.resetForms();
-      // Respect the requested destination (e.g. a shared /join/:id link), but
-      // fall back to the join page since that's the only place guests can go.
     this.navigate(routerService.getSearchParams("origin") ?? GUEST_LANDING);
   }
 

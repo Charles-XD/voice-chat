@@ -39,9 +39,17 @@ export default css`
   }
 
   .logs {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     flex: 0 0 30%;
     max-width: 30%;
     min-width: 320px;
+    min-height: 0;
+  }
+
+  .logs app-logs {
+    flex: 1 1 auto;
     min-height: 0;
   }
 

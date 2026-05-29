@@ -3,7 +3,6 @@ import { css } from "lit";
 export default css`
   .logs {
     font-family: var(--app-font);
-    padding: 12px;
     background: var(--app-bg);
     color: var(--app-text);
     border-radius: 12px;
@@ -17,7 +16,7 @@ export default css`
     font-weight: bold;
     margin-bottom: 8px;
     color: var(--app-link);
-    padding: 0px 12px;
+    padding: 0px;
   }
 
   .list {

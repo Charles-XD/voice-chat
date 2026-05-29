@@ -24,14 +24,67 @@ export async function updateUserName(key: string, name: string): Promise<UserRes
   return (await response.json()) as UserResponse;
 }
 
-export async function canJoinRoom(roomId: string, signal?: AbortSignal): Promise<boolean> {
+export interface Room {
+  id: string;
+  name: string;
+  isPublic: boolean;
+  creatorId: string;
+  allowed: string[];
+  createdAt: number;
+}
+
+export interface RoomAccess {
+  allowed: boolean;
+  room?: Room;
+}
+
+export async function createRoom(key: string, title: string, isPublic = false): Promise<Room> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, title, isPublic }),
+  });
+
+  if (!response.ok) throw new Error("Failed to create room");
+
+  return (await response.json()) as Room;
+}
+
+export async function getRoom(roomId: string, signal?: AbortSignal): Promise<Room | null> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms/${encodeURIComponent(roomId)}`, {
+    signal,
+  });
+
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error("Failed to load room");
+
+  return (await response.json()) as Room;
+}
+
+export async function canJoinRoom(
+  roomId: string,
+  key?: string,
+  signal?: AbortSignal,
+): Promise<RoomAccess> {
+  const query = key ? `?key=${encodeURIComponent(key)}` : "";
   const response = await fetch(
-    `${API_BASE_URL}/api/rooms/${encodeURIComponent(roomId)}/can-join`,
+    `${API_BASE_URL}/api/rooms/${encodeURIComponent(roomId)}/can-join${query}`,
     { signal },
   );
 
-  if (!response.ok) return false;
+  if (!response.ok) return { allowed: false };
 
-  const data = (await response.json()) as { allowed?: boolean };
-  return Boolean(data.allowed);
+  return (await response.json()) as RoomAccess;
+}
+
+export async function allowUser(roomId: string, key: string, userId: string): Promise<Room> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms/${encodeURIComponent(roomId)}/allow`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, userId }),
+  });
+
+  if (!response.ok) throw new Error("Failed to allow user");
+
+  return (await response.json()) as Room;
 }

@@ -11,7 +11,7 @@ export class CurrentRoom extends LitElement {
   room?: RoomState;
 
   override render() {
-    return html` <div>Current Room: ${this.room?.name || "None"}</div> `;
+    return html` <div>Current Room: ${this.room?.title || this.room?.name || "None"}</div> `;
   }
 }
 

@@ -1,12 +1,14 @@
-import { provide } from "@lit/context";
+import { consume, provide } from "@lit/context";
 import { Task } from "@lit/task";
 import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { canJoinRoom } from "./api";
 import styles from "./app.styles";
 import { type RoomState, roomContext } from "./components/app/_context/room.context";
 import { logger } from "./components/app/_services/logger.service";
 import { socketService } from "./components/app/_services/socket.service";
-import { canJoinRoom } from "./api";
+import type { User } from "./interfaces/user.interface";
+import { userContext } from "./providers/user.provider";
 
 @customElement("voice-app")
 export class App extends LitElement {
@@ -14,6 +16,9 @@ export class App extends LitElement {
 
   /** Room to join, taken from the /voice/:roomId route. */
   @property() roomId = "";
+
+  @consume({ context: userContext, subscribe: true })
+  private user?: User | null;
 
   @provide({ context: roomContext })
   @state()
@@ -23,21 +28,27 @@ export class App extends LitElement {
 
   // Validates the user can join, then joins the room. Re-runs if roomId changes.
   private _joinTask = new Task(this, {
-    task: async ([roomId], { signal }) => {
+    task: async ([roomId, key], { signal }) => {
       if (!roomId) throw new Error("MISSING_ROOM_ID");
 
-      const allowed = await canJoinRoom(roomId, signal);
+      const { allowed, room } = await canJoinRoom(roomId, key, signal);
       if (!allowed) throw new Error("FORBIDDEN");
 
       await socketService.joinRoom(roomId);
 
-      this.room = { name: roomId };
+      this.room = {
+        name: roomId,
+        title: room?.name ?? roomId,
+        isPublic: room?.isPublic,
+        creatorId: room?.creatorId,
+        allowed: room?.allowed ?? [],
+      };
       logger.clear();
-      logger.log("SUCCESS", `Joined the room (${roomId}).`);
+      logger.log("SUCCESS", `Joined the room (${this.room.title}).`);
 
       return roomId;
     },
-    args: () => [this.roomId],
+    args: () => [this.roomId, this.user?.key] as const,
   });
 
   connectedCallback() {
@@ -72,10 +83,12 @@ export class App extends LitElement {
           <app-mute-button></app-mute-button>
           <app-room-join></app-room-join>
           <app-current-room></app-current-room>
+          <app-room-manage></app-room-manage>
           <app-online-users-global></app-online-users-global>
         </div>
 
         <div class="logs">
+          <app-room-share></app-room-share>
           <app-logs></app-logs>
         </div>
       </div>
