@@ -7,6 +7,7 @@ import { tokens } from "./styles/tokens.styles";
 import "./pages/403/403.page";
 import "./pages/404/404.page";
 import "./pages/home/home.page";
+import "./pages/join/join.page";
 import "./pages/profile/profile.page";
 import "./pages/room/room.page";
 import "./app";
@@ -36,6 +37,12 @@ class AppRouter extends LitElement {
     {
       path: "/",
       render: () => html`<home-page @navigate=${this.onNavigate}></home-page>`,
+    },
+    {
+      path: "/join{/:id}?",
+      render: ({ id }) =>
+        html`<join-page roomId=${id ?? ""} @navigate=${this.onNavigate}></join-page>`,
+      enter: (): boolean => authGuard(this.router, this.user),
     },
     {
       path: "/room/:id",
@@ -99,7 +106,7 @@ class AppRouter extends LitElement {
         <div class="nav-left">
           <div class="nav-links">
             <a href="/">Home</a>
-            ${isAuthenticated(this.user) ? html`<a href="/room/join">Join</a>` : ""}
+            ${isAuthenticated(this.user) ? html`<a href="/join">Join</a>` : ""}
             ${canUseKeyFeatures(this.user) ? html`<a href="/profile">Profile</a>` : ""}
           </div>
         </div>

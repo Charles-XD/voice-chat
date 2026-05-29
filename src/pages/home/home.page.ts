@@ -7,7 +7,7 @@ import { hasKey, isGuest } from "../../guards/access";
 import type { User } from "../../interfaces/user.interface";
 import { userContext } from "../../providers/user.provider";
 
-const GUEST_LANDING = "/room/join";
+const GUEST_LANDING = "/join";
 
 import styles from "./styles";
 
@@ -81,8 +81,9 @@ export class HomePage extends LitElement {
 
     this.userController.guest(name);
     this.resetForms();
-    // Guests have no key, so send them straight to the only page they can use.
-    this.navigate(GUEST_LANDING);
+      // Respect the requested destination (e.g. a shared /join/:id link), but
+      // fall back to the join page since that's the only place guests can go.
+    this.navigate(routerService.getSearchParams("origin") ?? GUEST_LANDING);
   }
 
   private resetForms() {
