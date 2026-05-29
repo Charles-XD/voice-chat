@@ -4,7 +4,10 @@ import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { canJoinRoom } from "./api";
 import styles from "./app.styles";
-import { type RoomState, roomContext } from "./components/app/_context/room.context";
+import {
+  type RoomState,
+  roomContext,
+} from "./components/app/_context/room.context";
 import { logger } from "./components/app/_services/logger.service";
 import { socketService } from "./components/app/_services/socket.service";
 import type { User } from "./interfaces/user.interface";
@@ -54,11 +57,17 @@ export class App extends LitElement {
   connectedCallback() {
     super.connectedCallback();
 
-    this.addEventListener("room-change", this.handleRoomChange as EventListener);
+    this.addEventListener(
+      "room-change",
+      this.handleRoomChange as EventListener,
+    );
   }
 
   disconnectedCallback() {
-    this.removeEventListener("room-change", this.handleRoomChange as EventListener);
+    this.removeEventListener(
+      "room-change",
+      this.handleRoomChange as EventListener,
+    );
 
     super.disconnectedCallback();
   }
@@ -72,7 +81,11 @@ export class App extends LitElement {
 
   private goBack() {
     this.dispatchEvent(
-      new CustomEvent("navigate", { detail: "/join", bubbles: true, composed: true }),
+      new CustomEvent("navigate", {
+        detail: "/join",
+        bubbles: true,
+        composed: true,
+      }),
     );
   }
 
@@ -80,9 +93,8 @@ export class App extends LitElement {
     return html`
       <div class="layout">
         <div class="main">
-          <app-mute-button></app-mute-button>
-          <app-room-join></app-room-join>
           <app-current-room></app-current-room>
+          <app-room-actions></app-room-actions>
           <app-room-manage></app-room-manage>
           <app-online-users-global></app-online-users-global>
         </div>
@@ -108,7 +120,9 @@ export class App extends LitElement {
         return html`
           <div class="status error">
             <p>${message}</p>
-            <ui-button color="secondary" @onClick=${this.goBack}>Back to Join</ui-button>
+            <ui-button color="secondary" @onClick=${this.goBack}
+              >Back to Join</ui-button
+            >
           </div>
         `;
       },

@@ -4,6 +4,7 @@ export default css`
   :host {
     display: flex;
     flex-direction: column;
+    gap: 16px;
     flex-grow: 1;
     min-height: 0;
   }
@@ -33,6 +34,7 @@ export default css`
   .main {
     display: flex;
     flex-direction: column;
+    gap: 16px;
     flex: 1 1 auto;
     min-width: 0;
     min-height: 0;

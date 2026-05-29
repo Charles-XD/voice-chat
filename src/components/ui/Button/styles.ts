@@ -49,6 +49,20 @@ export default css`
     background: color-mix(in oklab, var(--app-text) 20%, var(--app-surface));
   }
 
+  button.error {
+    background: var(--app-danger);
+    color: #ffffff;
+    border-color: transparent;
+  }
+
+  button.error:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--app-danger) 85%, #000);
+  }
+
+  button.error:focus-visible {
+    box-shadow: 0 0 0 3px var(--app-danger-focus);
+  }
+
   button:active:not(:disabled) {
     transform: translateY(0.5px);
   }

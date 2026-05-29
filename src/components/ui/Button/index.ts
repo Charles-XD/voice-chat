@@ -10,7 +10,7 @@ export class Button extends LitElement {
   @property({ type: Boolean }) disabled = false;
   @property({ type: Boolean }) loading = false;
   @property({ type: String, attribute: true }) type = "button";
-  @property({ type: String }) color: "primary" | "secondary" = "primary";
+  @property({ type: String }) color: "primary" | "secondary" | "error" = "primary";
 
   protected handleClick(e: Event) {
     if (this.disabled || this.loading) return;
