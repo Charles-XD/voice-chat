@@ -10,6 +10,7 @@ export class Button extends LitElement {
   @property({ type: Boolean }) disabled = false;
   @property({ type: Boolean }) loading = false;
   @property({ type: String, attribute: true }) type = "button";
+  @property({ type: String }) color: "primary" | "secondary" = "primary";
 
   protected handleClick(e: Event) {
     if (this.disabled || this.loading) return;
@@ -48,7 +49,7 @@ export class Button extends LitElement {
   override render() {
     return html`
       <button
-        class=${this.loading ? 'loading' : ''}
+        class="${this.color}${this.loading ? ' loading' : ''}"
         part="button"
         type=${this.type}
         ?disabled=${this.disabled || this.loading}

@@ -39,6 +39,16 @@ export default css`
     background: var(--ui-button-bg-hover);
   }
 
+  button.secondary {
+    background: color-mix(in oklab, var(--app-text) 12%, var(--app-surface));
+    color: var(--app-text);
+    border-color: var(--app-border);
+  }
+
+  button.secondary:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--app-text) 20%, var(--app-surface));
+  }
+
   button:active:not(:disabled) {
     transform: translateY(0.5px);
   }

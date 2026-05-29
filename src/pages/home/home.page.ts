@@ -144,7 +144,7 @@ export class HomePage extends LitElement {
               ></ui-textfield>
 
               <div class="spacer"></div>
-              <ui-button type="submit">Continue as Guest</ui-button>
+              <ui-button type="submit" color="secondary">Continue as Guest</ui-button>
             </form>
           </section>
         </div>
