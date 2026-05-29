@@ -17,6 +17,7 @@ export default css`
     font-weight: bold;
     margin-bottom: 8px;
     color: var(--app-link);
+    padding: 0px 12px;
   }
 
   .list {

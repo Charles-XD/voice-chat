@@ -46,9 +46,8 @@ export class Logs extends LitElement {
 
   override render() {
     return html`
+      <div class="title">Logs</div>
       <div class="logs" ${ref(this.logsRef)} @scroll=${this.onScroll}>
-        <div class="title">Logs</div>
-
         <ul class="list">
           ${this.appLogs.map(
             (l) => html`
