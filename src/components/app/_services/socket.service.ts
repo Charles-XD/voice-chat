@@ -103,9 +103,9 @@ class SocketService {
     return () => this.statusListeners.delete(listener);
   }
 
-  async joinRoom(room: string): Promise<boolean> {
+  async joinRoom(room: string, name?: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
-      const join = this.socket.emit("join-room", room, (res: { success: boolean }) => {
+      const join = this.socket.emit("join-room", { room, name }, (res: { success: boolean }) => {
         if (res.success) {
           resolve(res.success);
         } else {

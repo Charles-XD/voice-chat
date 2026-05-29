@@ -7,9 +7,6 @@ import { logger } from "../_services/logger.service";
 export class MuteButton extends Button {
   @property({ type: Boolean }) muted = false;
 
-  @property({ attribute: false })
-  onClick?: (e: Event) => void;
-
   protected override willUpdate(changed: PropertyValues<this>) {
     // Muted is destructive (silenced) → error; live mic → neutral secondary.
     if (changed.has("muted")) {
@@ -17,10 +14,17 @@ export class MuteButton extends Button {
     }
   }
 
-  protected override handleClick(e: Event) {
+  protected override handleClick(_e: Event) {
     this.muted = !this.muted;
     logger.log("INFO", `${this.muted ? "Mute" : "Unmute"}`);
-    this.onClick?.(e);
+
+    this.dispatchEvent(
+      new CustomEvent("mute-change", {
+        detail: { muted: this.muted },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   private renderIcon() {

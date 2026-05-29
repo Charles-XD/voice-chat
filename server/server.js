@@ -70,6 +70,24 @@ function readRoom(id, cb) {
   });
 }
 
+// The socket.io room membership is the source of truth for who is currently
+// connected to a room. Each member carries its display name and mic state,
+// which live on the socket (socket.data) for the lifetime of the connection.
+function memberOf(socket) {
+  return {
+    id: socket.id,
+    name: (socket.data && socket.data.name) || socket.id.slice(0, 6),
+    muted: Boolean(socket.data && socket.data.muted),
+  };
+}
+
+function roomMembers(id) {
+  return Array.from(io.sockets.adapter.rooms.get(id) || [])
+    .map((sid) => io.sockets.sockets.get(sid))
+    .filter(Boolean)
+    .map(memberOf);
+}
+
 const app = express();
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
@@ -112,6 +130,11 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);
 
+    // Notify the room (if any) so member lists stay in sync.
+    if (socket.room) {
+      socket.to(socket.room).emit("user-leave-room", { room: socket.room, user: socket.id });
+    }
+
     // 1. Remove the disconnected user from the online set
     redisClient.srem("users:online", socket.id, (err, removedCount) => {
       if (err) {
@@ -147,23 +170,43 @@ io.on("connection", (socket) => {
     socket.emit("pong", sentTime);
   });
 
-  socket.on("join-room", (room) => {
+  socket.on("join-room", (payload, ack) => {
+    const room = typeof payload === "string" ? payload : payload && payload.room;
+    const name = payload && typeof payload === "object" ? payload.name : undefined;
+    if (!room) {
+      if (typeof ack === "function") ack({ success: false });
+      return;
+    }
+
     socket.join(room);
     socket.room = room;
+    socket.data.name = name || socket.id.slice(0, 6);
+    socket.data.muted = false;
 
-    const clients = Array.from(io.sockets.adapter.rooms.get(room) || []);
-    socket.emit(
-      "all-clients",
-      clients.filter((id) => id !== socket.id)
-    );
+    // Send the joiner everyone already in the room (with names + mic state).
+    const others = roomMembers(room).filter((m) => m.id !== socket.id);
+    socket.emit("all-clients", others);
 
-    socket.to(room).emit("user-join-room", { room: room, user: socket.id });
+    // Tell the room about the new member.
+    socket.to(room).emit("user-join-room", { room, user: memberOf(socket) });
+
+    if (typeof ack === "function") ack({ success: true });
   });
 
   socket.on("leave-room", (room) => {
     socket.leave(room);
 
     socket.to(room).emit("user-leave-room", { room: room, user: socket.id });
+  });
+
+  // Broadcast a member's mic (mute) state to the whole room — including the
+  // sender — so every client's roster stays in sync.
+  socket.on("mic-status", (payload) => {
+    const muted = Boolean(payload && payload.muted);
+    socket.data.muted = muted;
+    if (socket.room) {
+      io.to(socket.room).emit("mic-status", { user: socket.id, muted });
+    }
   });
 
   // Relay WebRTC signaling messages
@@ -190,9 +233,12 @@ io.on("connection", (socket) => {
 
   socket.on("chat-message", (message) => {
     if (!socket.room) return;
+    const text = typeof message === "string" ? message : message && message.message;
+    if (!text) return;
     const data = {
-      from: socket.id.slice(0, 6),
-      message,
+      id: socket.id,
+      from: (socket.data && socket.data.name) || socket.id.slice(0, 6),
+      message: text,
       time: new Date().toLocaleTimeString(),
     };
     io.to(socket.room).emit("chat-message", data);
@@ -286,6 +332,7 @@ app.get('/api/rooms/:roomId', (req, res) => {
   readRoom(roomId, (err, room) => {
     if (err) return res.status(400).send("REDIS_ERROR");
     if (!room) return res.status(404).send("NOT_FOUND");
+    room.users = roomMembers(roomId);
     res.send(room);
   });
 });
@@ -306,6 +353,7 @@ app.get('/api/rooms/:roomId/can-join', (req, res) => {
       (key && key === room.creatorId) ||
       (key && room.allowed.includes(key));
 
+    room.users = roomMembers(roomId);
     res.send({ allowed: Boolean(allowed), room });
   });
 });

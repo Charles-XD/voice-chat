@@ -28,10 +28,15 @@ export class RoomActions extends LitElement {
     this.navigate("/join");
   }
 
+  private handleMute = (e: CustomEvent<{ muted: boolean }>) => {
+    // Broadcast our mic state so other members' rosters update.
+    socketService.socket.emit("mic-status", { muted: e.detail.muted });
+  };
+
   override render() {
     return html`
       <div class="bar">
-        <app-mute-button></app-mute-button>
+        <app-mute-button @mute-change=${this.handleMute}></app-mute-button>
 
         <ui-button color="error" @onClick=${this.handleLeave}>
           <svg

@@ -24,6 +24,14 @@ export async function updateUserName(key: string, name: string): Promise<UserRes
   return (await response.json()) as UserResponse;
 }
 
+export interface RoomMember {
+  /** Socket id (stable per connection). */
+  id: string;
+  /** Display name shown in the UI. */
+  name: string;
+  muted: boolean;
+}
+
 export interface Room {
   id: string;
   name: string;
@@ -31,6 +39,8 @@ export interface Room {
   creatorId: string;
   allowed: string[];
   createdAt: number;
+  /** Members currently connected to the room (live membership). */
+  users?: RoomMember[];
 }
 
 export interface RoomAccess {

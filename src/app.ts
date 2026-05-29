@@ -4,10 +4,7 @@ import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { canJoinRoom } from "./api";
 import styles from "./app.styles";
-import {
-  type RoomState,
-  roomContext,
-} from "./components/app/_context/room.context";
+import { type RoomState, roomContext } from "./components/app/_context/room.context";
 import { logger } from "./components/app/_services/logger.service";
 import { socketService } from "./components/app/_services/socket.service";
 import type { User } from "./interfaces/user.interface";
@@ -37,7 +34,7 @@ export class App extends LitElement {
       const { allowed, room } = await canJoinRoom(roomId, key, signal);
       if (!allowed) throw new Error("FORBIDDEN");
 
-      await socketService.joinRoom(roomId);
+      await socketService.joinRoom(roomId, this.user?.name);
 
       this.room = {
         name: roomId,
@@ -45,6 +42,7 @@ export class App extends LitElement {
         isPublic: room?.isPublic,
         creatorId: room?.creatorId,
         allowed: room?.allowed ?? [],
+        users: room?.users ?? [],
       };
       logger.clear();
       logger.log("SUCCESS", `Joined the room (${this.room.title}).`);
@@ -57,17 +55,11 @@ export class App extends LitElement {
   connectedCallback() {
     super.connectedCallback();
 
-    this.addEventListener(
-      "room-change",
-      this.handleRoomChange as EventListener,
-    );
+    this.addEventListener("room-change", this.handleRoomChange as EventListener);
   }
 
   disconnectedCallback() {
-    this.removeEventListener(
-      "room-change",
-      this.handleRoomChange as EventListener,
-    );
+    this.removeEventListener("room-change", this.handleRoomChange as EventListener);
 
     super.disconnectedCallback();
   }
@@ -96,7 +88,8 @@ export class App extends LitElement {
           <app-current-room></app-current-room>
           <app-room-actions></app-room-actions>
           <app-room-manage></app-room-manage>
-          <app-online-users-global></app-online-users-global>
+          <app-room-users></app-room-users>
+          <app-room-chat></app-room-chat>
         </div>
 
         <div class="logs">
