@@ -92,7 +92,9 @@ const app = express();
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:5173",
+    // Reflect the requesting origin so localhost AND LAN/`--host` clients
+    // (e.g. http://192.168.x.x:5173) can connect during development.
+    origin: true,
     methods: ["GET", "POST"],
     credentials: true
   }

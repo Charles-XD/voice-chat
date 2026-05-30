@@ -1,4 +1,8 @@
-export const API_BASE_URL = "http://localhost:4000";
+// Same-origin by default: the Vite dev server proxies `/api` to the backend
+// (and the production build is served by the backend itself), so relative URLs
+// work everywhere without mixed-content/CORS issues. Override with
+// VITE_API_SERVER to point at an explicit backend.
+export const API_BASE_URL = import.meta.env.VITE_API_SERVER || "";
 
 export interface UserResponse {
   name: string | null;

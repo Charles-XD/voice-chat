@@ -14,13 +14,21 @@ type IcePayload = { candidate: RTCIceCandidateInit; from: string };
 type LeavePayload = { room: string; user: string };
 type Client = { id: string } | string;
 
+const TURN_URL = import.meta.env.VITE_TURN_URL;
+const STUN_URL = import.meta.env.VITE_STUN_URL;
+
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
-    {
-      urls: "turn:87.248.130.21:3478",
-      username: "voiceuser",
-      credential: "voicepass",
-    },
+    ...(STUN_URL ? [{ urls: STUN_URL }] : []),
+    ...(TURN_URL
+      ? [
+          {
+            urls: TURN_URL,
+            username: import.meta.env.VITE_TURN_USERNAME,
+            credential: import.meta.env.VITE_TURN_CREDENTIAL,
+          },
+        ]
+      : []),
   ],
 };
 
@@ -169,10 +177,20 @@ export class CallProvider extends LitElement {
   private async ensureLocalStream(): Promise<void> {
     if (this.localStream) return;
     try {
+      // `mediaDevices` is undefined in an insecure context (non-HTTPS on a
+      // non-localhost origin), which would otherwise throw here.
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("INSECURE_CONTEXT");
+      }
       this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (error) {
-      logger.log("ERROR", "Microphone access was denied.");
-      throw error;
+    } catch (_error) {
+      // Don't fail the join — connect in listen-only mode so the user can still
+      // hear others. (Serve over HTTPS to enable the microphone on the LAN.)
+      this.localStream = null;
+      logger.log(
+        "ERROR",
+        "Microphone unavailable — joined in listen-only mode (HTTPS is required to use your mic).",
+      );
     }
   }
 
@@ -289,6 +307,10 @@ export class CallProvider extends LitElement {
       stream.getTracks().forEach((track) => {
         pc.addTrack(track, stream);
       });
+    } else {
+      // Listen-only: no mic to send, but still negotiate an audio m-line so we
+      // receive everyone else's audio.
+      pc.addTransceiver("audio", { direction: "recvonly" });
     }
 
     pc.onicecandidate = (event) => {

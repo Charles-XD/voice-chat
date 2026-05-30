@@ -15,7 +15,12 @@ class SocketService {
   private status: SocketConnectionStatus = "connecting";
 
   constructor() {
-    this.socket = io(import.meta.env.VITE_WEB_SOCKET_SERVER, {
+    // Connect to the page's own origin by default; the Vite dev server proxies
+    // `/socket.io` (with ws upgrade) to the backend. Override with
+    // VITE_WEB_SOCKET_SERVER to target an explicit server.
+    const socketUrl = import.meta.env.VITE_WEB_SOCKET_SERVER || window.location.origin;
+
+    this.socket = io(socketUrl, {
       autoConnect: true,
     });
 
