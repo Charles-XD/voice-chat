@@ -1,3 +1,4 @@
+import { consume } from "@lit/context";
 import { Router } from "@lit-labs/router";
 import { html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
@@ -12,7 +13,6 @@ import "./pages/room/room.page";
 import "./pages/settings/settings.page";
 import "./app";
 
-import { consume } from "@lit/context";
 import "./components/app/CallIndicator";
 import "./components/app/Nav";
 import { logger } from "./components/app/_services/logger.service";
@@ -74,12 +74,12 @@ class AppRouter extends LitElement {
     history.replaceState({}, "", e.detail);
   }
 
-  private handleLogout() {
+  private handleLogout = (): void => {
     logger.clear();
     this.userController.logout();
     this.router.goto("/");
     history.replaceState({}, "", "/");
-  }
+  };
 
   render() {
     return html`

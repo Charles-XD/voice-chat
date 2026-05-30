@@ -1,9 +1,10 @@
 import { consume } from "@lit/context";
 import { html, LitElement, type PropertyValues, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { isGuest } from "../../guards/access";
+import { canJoinRoom } from "../../api";
+import { hasKey, isGuest } from "../../guards/access";
 import type { User } from "../../interfaces/user.interface";
-import { userContext } from "../../providers/user.provider";
+import { userContext, GUEST_SESSION_KEY } from "../../providers/user.provider";
 import { socketService } from "../../components/app/_services/socket.service";
 
 import styles from "./styles";
@@ -28,24 +29,51 @@ export class JoinPage extends LitElement {
   @state() private error = "";
   @state() private waiting = false;
   @state() private waitingRoomId = "";
+  @state() private requestMode = false;
+  @state() private checking = false;
+
+  private accessCheckAbort?: AbortController;
 
   protected override willUpdate(changed: PropertyValues<this>): void {
     // Prefill the input with the room id coming from the route (if any).
     if (changed.has("roomId") && this.roomId) {
       this.value = this.roomId;
     }
+
+    if (
+      (changed.has("roomId") || changed.has("user")) &&
+      hasKey(this.user) &&
+      this.value.trim()
+    ) {
+      this.scheduleAccessCheck(this.value.trim());
+    }
+  }
+
+  override disconnectedCallback(): void {
+    this.accessCheckAbort?.abort();
+    socketService.socket.off("join-request-admitted", this.handleAdmitted);
+    socketService.socket.off("join-request-denied", this.handleDenied);
+    super.disconnectedCallback();
+  }
+
+  private scheduleAccessCheck(roomId: string) {
+    this.accessCheckAbort?.abort();
+    const controller = new AbortController();
+    this.accessCheckAbort = controller;
+
+    const key = this.user?.key;
+    if (!key) return;
+
+    void canJoinRoom(roomId, key, controller.signal).then(({ allowed, room }) => {
+      if (controller.signal.aborted) return;
+      this.requestMode = !allowed && Boolean(room);
+    });
   }
 
   override connectedCallback(): void {
     super.connectedCallback();
     socketService.socket.on("join-request-admitted", this.handleAdmitted);
     socketService.socket.on("join-request-denied", this.handleDenied);
-  }
-
-  override disconnectedCallback(): void {
-    socketService.socket.off("join-request-admitted", this.handleAdmitted);
-    socketService.socket.off("join-request-denied", this.handleDenied);
-    super.disconnectedCallback();
   }
 
   private navigate(url: string) {
@@ -74,6 +102,7 @@ export class JoinPage extends LitElement {
   private handleChange(e: CustomEvent<string>) {
     this.value = e.detail;
     if (this.error) this.error = "";
+    this.requestMode = false;
   }
 
   private validateRoomId(): string | null {
@@ -84,6 +113,18 @@ export class JoinPage extends LitElement {
     }
     this.error = "";
     return id;
+  }
+
+  private joinRequestKey(): string | undefined {
+    if (this.user?.key) return this.user.key;
+    if (!isGuest(this.user)) return undefined;
+
+    let key = sessionStorage.getItem(GUEST_SESSION_KEY);
+    if (!key) {
+      key = `guest-${crypto.randomUUID()}`;
+      sessionStorage.setItem(GUEST_SESSION_KEY, key);
+    }
+    return key;
   }
 
   private async handleRequest(e: Event) {
@@ -103,7 +144,7 @@ export class JoinPage extends LitElement {
       {
         room: id,
         name: this.user?.name ?? "Guest",
-        userKey: this.user?.key,
+        userKey: this.joinRequestKey(),
       },
       (ack: JoinRequestAck) => {
         if (ack?.admitted) {
@@ -124,12 +165,35 @@ export class JoinPage extends LitElement {
     );
   }
 
-  private handleJoin(e: Event) {
+  private async handleJoin(e: Event) {
     e.preventDefault();
     const id = this.validateRoomId();
     if (!id) return;
 
-    this.navigate(`/voice/${encodeURIComponent(id)}`);
+    const key = this.user?.key;
+    if (!hasKey(this.user) || !key) {
+      this.navigate(`/voice/${encodeURIComponent(id)}`);
+      return;
+    }
+
+    this.checking = true;
+    try {
+      const { allowed, room } = await canJoinRoom(id, key);
+      if (allowed) {
+        this.navigate(`/voice/${encodeURIComponent(id)}`);
+        return;
+      }
+      if (room) {
+        this.requestMode = true;
+        this.error = "";
+        return;
+      }
+      this.error = "That room does not exist.";
+    } catch {
+      this.error = "Could not verify room access. Try again.";
+    } finally {
+      this.checking = false;
+    }
   }
 
   private renderForm({
@@ -138,12 +202,14 @@ export class JoinPage extends LitElement {
     buttonLabel,
     onSubmit,
     waiting = false,
+    submitDisabled = false,
   }: {
     title: string;
     subtitle: TemplateResult;
     buttonLabel: string;
     onSubmit: (e: Event) => void;
     waiting?: boolean;
+    submitDisabled?: boolean;
   }) {
     return html`
       <div class="card">
@@ -166,7 +232,9 @@ export class JoinPage extends LitElement {
                   @onChange=${this.handleChange}
                 ></ui-textfield>
 
-                <ui-button type="submit">${buttonLabel}</ui-button>
+                <ui-button type="submit" ?disabled=${submitDisabled}
+                  >${buttonLabel}</ui-button
+                >
               </form>`
         }
       </div>
@@ -187,12 +255,24 @@ export class JoinPage extends LitElement {
       });
     }
 
+    if (this.requestMode || this.waiting) {
+      return this.renderForm({
+        title: "Request to join",
+        subtitle: html`Hey ${name}, you don't have access to this room yet. The
+        host will need to admit you before you can enter.`,
+        buttonLabel: "Request to join",
+        onSubmit: this.handleRequest,
+        waiting: this.waiting,
+      });
+    }
+
     return this.renderForm({
       title: "Join a room",
       subtitle: html`Hey ${name}, enter a room code below to join the
       conversation.`,
-      buttonLabel: "Join",
+      buttonLabel: this.checking ? "Checking…" : "Join",
       onSubmit: this.handleJoin,
+      submitDisabled: this.checking,
     });
   }
 }

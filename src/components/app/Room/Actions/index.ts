@@ -2,6 +2,7 @@ import { consume } from "@lit/context";
 import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { type CallApi, callContext } from "../../_context/call.context";
+import { leaveCallIfConfirmed } from "../../_services/confirm.service";
 
 import styles from "./styles";
 
@@ -18,8 +19,9 @@ export class RoomActions extends LitElement {
   }
 
   private handleLeave = () => {
-    this.call?.leave();
-    this.navigate("/join");
+    void leaveCallIfConfirmed(this.call, "leave", () => {
+      this.navigate("/join");
+    });
   };
 
   private handleMute = (e: CustomEvent<{ muted: boolean }>) => {

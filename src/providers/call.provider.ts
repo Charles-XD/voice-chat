@@ -539,6 +539,8 @@ export class CallProvider extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
+    window.addEventListener("beforeunload", this.onBeforeUnload);
+    window.addEventListener("pagehide", this.onPageHide);
     const s = socketService.socket;
     s.on("all-clients", this.handleAllClients);
     s.on("user-join-room", this.handlePeerJoin);
@@ -552,7 +554,20 @@ export class CallProvider extends LitElement {
     s.on("camera-sync", this.handleCameraSync);
   }
 
+  private onBeforeUnload = (e: BeforeUnloadEvent): void => {
+    if (!this.roomId) return;
+    e.preventDefault();
+    e.returnValue = "";
+  };
+
+  private onPageHide = (e: PageTransitionEvent): void => {
+    if (!this.roomId || e.persisted) return;
+    this.leave();
+  };
+
   override disconnectedCallback(): void {
+    window.removeEventListener("beforeunload", this.onBeforeUnload);
+    window.removeEventListener("pagehide", this.onPageHide);
     const s = socketService.socket;
     s.off("all-clients", this.handleAllClients);
     s.off("user-join-room", this.handlePeerJoin);

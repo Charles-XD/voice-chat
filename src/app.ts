@@ -8,7 +8,7 @@ import { type CallApi, callContext } from "./components/app/_context/call.contex
 import { type RoomState, roomContext } from "./components/app/_context/room.context";
 import { logger } from "./components/app/_services/logger.service";
 import type { User } from "./interfaces/user.interface";
-import { userContext } from "./providers/user.provider";
+import { userContext, GUEST_SESSION_KEY } from "./providers/user.provider";
 
 @customElement("voice-app")
 export class App extends LitElement {
@@ -28,6 +28,10 @@ export class App extends LitElement {
   private room: RoomState = {
     name: "",
   };
+
+  private joinKey(): string | undefined {
+    return this.user?.key ?? sessionStorage.getItem(GUEST_SESSION_KEY) ?? undefined;
+  }
 
   private _joinTask = new Task(this, {
     task: async ([roomId, key], { signal }) => {
@@ -57,7 +61,7 @@ export class App extends LitElement {
         roomId,
         title,
         name: this.user?.name,
-        userKey: this.user?.key,
+        userKey: this.joinKey(),
         muted,
       });
 
@@ -68,7 +72,7 @@ export class App extends LitElement {
 
       return roomId;
     },
-    args: () => [this.roomId, this.user?.key] as const,
+    args: () => [this.roomId, this.joinKey()] as const,
   });
 
   @state() private panelCollapsed = false;
@@ -166,6 +170,16 @@ export class App extends LitElement {
     );
   }
 
+  private requestToJoin() {
+    this.dispatchEvent(
+      new CustomEvent("navigate", {
+        detail: `/join/${encodeURIComponent(this.roomId)}`,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
   private renderRoom() {
     return html`
       <div
@@ -241,12 +255,24 @@ export class App extends LitElement {
             ? "You don't have access to this room."
             : "We couldn't join this room. Please try again.";
 
+        const forbidden =
+          error instanceof Error && error.message === "FORBIDDEN";
+
         return html`
           <div class="status error">
             <p>${message}</p>
-            <ui-button color="secondary" @onClick=${this.goBack}
-              >Back to Join</ui-button
-            >
+            <div class="status-actions">
+              ${
+                forbidden
+                  ? html`<ui-button @onClick=${this.requestToJoin}
+                      >Request to join</ui-button
+                    >`
+                  : null
+              }
+              <ui-button color="secondary" @onClick=${this.goBack}
+                >Back to Join</ui-button
+              >
+            </div>
           </div>
         `;
       },

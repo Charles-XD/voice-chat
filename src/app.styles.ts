@@ -91,6 +91,13 @@ export default css`
     color: var(--app-text);
   }
 
+  .status-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+  }
+
   .main {
     display: flex;
     flex-direction: column;

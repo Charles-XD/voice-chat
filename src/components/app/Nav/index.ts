@@ -8,6 +8,8 @@ import type { Theme } from "../../../interfaces/theme.interface";
 import type { User } from "../../../interfaces/user.interface";
 import { themeContext } from "../../../providers/theme.provider";
 import { userContext } from "../../../providers/user.provider";
+import { type CallApi, callContext } from "../_context/call.context";
+import { leaveCallIfConfirmed } from "../_services/confirm.service";
 
 import styles from "./styles";
 
@@ -24,6 +26,10 @@ export class AppNav extends LitElement {
   @consume({ context: themeContext, subscribe: true })
   @state()
   theme: Theme = "dark";
+
+  @consume({ context: callContext, subscribe: true })
+  @state()
+  private call?: CallApi;
 
   @state() private drawerOpen = false;
   @state() private isMobileView = false;
@@ -88,10 +94,12 @@ export class AppNav extends LitElement {
     this.themeController.toggle(this.theme);
   }
 
-  private emitLogout(): void {
-    this.closeDrawer();
-    this.dispatchEvent(new CustomEvent("logout", { bubbles: true, composed: true }));
-  }
+  private handleLogout = (): void => {
+    void leaveCallIfConfirmed(this.call, "logout", () => {
+      this.closeDrawer();
+      this.dispatchEvent(new CustomEvent("logout", { bubbles: true, composed: true }));
+    });
+  };
 
   private handleDrawerLinkClick(): void {
     this.closeDrawer();
@@ -273,7 +281,7 @@ export class AppNav extends LitElement {
             isAuthenticated(this.user)
               ? html`<div class="user-info">
                 <app-connection-status></app-connection-status>
-                <ui-button @onClick=${this.emitLogout}>Logout</ui-button>
+                <ui-button @onClick=${this.handleLogout}>Logout</ui-button>
               </div>`
               : ""
           }
@@ -282,7 +290,7 @@ export class AppNav extends LitElement {
         ${
           isAuthenticated(this.user)
             ? html`<div class="nav-mobile-actions">
-              <ui-button @onClick=${this.emitLogout}>Logout</ui-button>
+              <ui-button @onClick=${this.handleLogout}>Logout</ui-button>
             </div>`
             : html`<div class="nav-mobile-actions"></div>`
         }

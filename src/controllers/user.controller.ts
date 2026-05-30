@@ -1,7 +1,7 @@
 import type { ReactiveController, ReactiveControllerHost } from "lit";
 import { getUser, updateUserName } from "../api";
 import type { User } from "../interfaces/user.interface";
-import { USER_CHANGE_EVENT, USER_KEY } from "../providers/user.provider";
+import { USER_CHANGE_EVENT, USER_KEY, GUEST_SESSION_KEY } from "../providers/user.provider";
 
 export class UserController implements ReactiveController {
   host: ReactiveControllerHost & Element;
@@ -46,7 +46,12 @@ export class UserController implements ReactiveController {
   }
 
   public guest(name: string) {
-    this.dispatch({ name, isGuest: true });
+    let key = sessionStorage.getItem(GUEST_SESSION_KEY);
+    if (!key) {
+      key = `guest-${crypto.randomUUID()}`;
+      sessionStorage.setItem(GUEST_SESSION_KEY, key);
+    }
+    this.dispatch({ name, isGuest: true, key });
   }
 
   public async updateName(name: string): Promise<User | null> {
@@ -67,6 +72,7 @@ export class UserController implements ReactiveController {
 
   public logout() {
     localStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(GUEST_SESSION_KEY);
     this.dispatch(null);
   }
 }

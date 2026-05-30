@@ -7,6 +7,7 @@ import type { User } from "../interfaces/user.interface";
 export const userContext = createContext<User | null>(Symbol("user-context"));
 export const USER_CHANGE_EVENT = "user-change-event";
 export const USER_KEY = "userKey";
+export const GUEST_SESSION_KEY = "guestSessionKey";
 
 @customElement("user-provider")
 export class UserProvider extends LitElement {
