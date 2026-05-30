@@ -70,7 +70,7 @@ export class RoomCreate extends LitElement {
         <form @submit=${this.handleSubmit} novalidate>
           <ui-textfield
             label="Room title"
-            placeholder="e.g. Design sync"
+            placeholder="e.g. Daily Meeting"
             required
             .value=${this.roomTitle}
             .error=${this.error}

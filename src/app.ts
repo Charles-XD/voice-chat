@@ -31,6 +31,10 @@ export class App extends LitElement {
     task: async ([roomId, key], { signal }) => {
       if (!roomId) throw new Error("MISSING_ROOM_ID");
 
+      // Wait for the realtime connection before doing anything else — on a
+      // fresh page load (slower in Firefox) the socket may still be connecting.
+      await socketService.whenConnected();
+
       const { allowed, room } = await canJoinRoom(roomId, key, signal);
       if (!allowed) throw new Error("FORBIDDEN");
 

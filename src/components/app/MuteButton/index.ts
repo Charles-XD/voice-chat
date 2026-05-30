@@ -5,7 +5,7 @@ import { logger } from "../_services/logger.service";
 
 @customElement("app-mute-button")
 export class MuteButton extends Button {
-  @property({ type: Boolean }) muted = false;
+  @property({ type: Boolean }) muted = true;
 
   protected override willUpdate(changed: PropertyValues<this>) {
     // Muted is destructive (silenced) → error; live mic → neutral secondary.

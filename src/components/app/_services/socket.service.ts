@@ -103,32 +103,46 @@ class SocketService {
     return () => this.statusListeners.delete(listener);
   }
 
-  async joinRoom(room: string, name?: string): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-      const join = this.socket.emit("join-room", { room, name }, (res: { success: boolean }) => {
-        if (res.success) {
-          resolve(res.success);
-        } else {
-          reject();
-        }
-      });
+  /**
+   * Resolves once the socket is connected. On a fresh page load the socket may
+   * still be connecting (notably slower in Firefox), so we wait for the
+   * `connect` event instead of assuming it's ready.
+   */
+  whenConnected(timeoutMs = 15000): Promise<void> {
+    if (this.socket.connected) return Promise.resolve();
 
-      join.connected ? resolve(true) : reject();
+    return new Promise((resolve, reject) => {
+      const onConnect = () => {
+        cleanup();
+        resolve();
+      };
+      const timer = window.setTimeout(() => {
+        cleanup();
+        reject(new Error("CONNECT_TIMEOUT"));
+      }, timeoutMs);
+      const cleanup = () => {
+        window.clearTimeout(timer);
+        this.socket.off("connect", onConnect);
+      };
+
+      this.socket.on("connect", onConnect);
+      // No-op if a connection attempt is already in flight.
+      this.socket.connect();
     });
   }
 
-  async leaveRoom(room: string): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-      const leave = this.socket.emit("leave-room", room, (res: { success: boolean }) => {
-        if (res.success) {
-          resolve(res.success);
-        } else {
-          reject();
-        }
-      });
+  async joinRoom(room: string, name?: string, muted = true): Promise<boolean> {
+    // Wait until the socket is actually connected before emitting; emitting
+    // against a still-connecting socket previously failed the join.
+    await this.whenConnected();
+    this.socket.emit("join-room", { room, name, muted });
+    return true;
+  }
 
-      leave.connected ? resolve(true) : reject();
-    });
+  async leaveRoom(room: string): Promise<boolean> {
+    if (!this.socket.connected) return false;
+    this.socket.emit("leave-room", room);
+    return true;
   }
 }
 

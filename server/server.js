@@ -181,7 +181,10 @@ io.on("connection", (socket) => {
     socket.join(room);
     socket.room = room;
     socket.data.name = name || socket.id.slice(0, 6);
-    socket.data.muted = false;
+    socket.data.muted =
+      payload && typeof payload === "object" && payload.muted !== undefined
+        ? Boolean(payload.muted)
+        : true;
 
     // Send the joiner everyone already in the room (with names + mic state).
     const others = roomMembers(room).filter((m) => m.id !== socket.id);
@@ -197,6 +200,14 @@ io.on("connection", (socket) => {
     socket.leave(room);
 
     socket.to(room).emit("user-leave-room", { room: room, user: socket.id });
+  });
+
+  // Authoritative roster lookup. Lets a freshly-mounted client pull the current
+  // members (with names + mic state) without racing the join-time broadcast.
+  socket.on("get-members", (room, ack) => {
+    const target = room || socket.room;
+    const members = target ? roomMembers(target) : [];
+    if (typeof ack === "function") ack(members);
   });
 
   // Broadcast a member's mic (mute) state to the whole room — including the

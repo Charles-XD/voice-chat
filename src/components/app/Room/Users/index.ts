@@ -5,6 +5,7 @@ import type { RoomMember } from "../../../../api";
 import type { User } from "../../../../interfaces/user.interface";
 import { userContext } from "../../../../providers/user.provider";
 import { type RoomState, roomContext } from "../../_context/room.context";
+import { logger } from "../../_services/logger.service";
 import { socketService } from "../../_services/socket.service";
 
 import styles from "./styles";
@@ -27,6 +28,8 @@ export class RoomUsers extends LitElement {
 
   @state() private members: RoomMember[] = [];
 
+  private requestedRoom?: string;
+
   private get selfId(): string | undefined {
     return socketService.socket.id;
   }
@@ -48,17 +51,25 @@ export class RoomUsers extends LitElement {
   }
 
   protected override willUpdate(changed: PropertyValues<this>): void {
-    // Seed from the room snapshot fetched on join (lists members already
-    // present); add ourselves since the join event predates this component.
-    if (changed.has("room") && this.members.length === 0 && this.room?.users) {
-      this.members = this.withSelf(this.room.users);
+    if (changed.has("room") && this.room?.name && this.room.name !== this.requestedRoom) {
+      this.requestedRoom = this.room.name;
+      // Seed instantly from the REST snapshot, then pull the authoritative
+      // roster (mute states included) to avoid racing the join broadcast.
+      this.members = this.withSelf(this.room.users ?? []);
+      this.refreshMembers(this.room.name);
     }
+  }
+
+  private refreshMembers(room: string) {
+    socketService.socket.emit("get-members", room, (members: RoomMember[]) => {
+      if (Array.isArray(members)) this.members = this.withSelf(members);
+    });
   }
 
   private selfMember(): RoomMember | null {
     const id = this.selfId;
     if (!id) return null;
-    return { id, name: this.user?.name ?? id.slice(0, 6), muted: false };
+    return { id, name: this.user?.name ?? id.slice(0, 6), muted: true };
   }
 
   private withSelf(members: RoomMember[]): RoomMember[] {
@@ -79,12 +90,17 @@ export class RoomUsers extends LitElement {
     if (!this.isForThisRoom(detail.room)) return;
     if (!this.members.some((m) => m.id === detail.user.id)) {
       this.members = [...this.members, detail.user];
+      logger.log("INFO", `${detail.user.name} joined the room.`);
     }
   };
 
   private handleUserLeave = (detail: LeaveEvent) => {
     if (!this.isForThisRoom(detail.room)) return;
+    const leaving = this.members.find((m) => m.id === detail.user);
     this.members = this.members.filter((m) => m.id !== detail.user);
+    if (leaving) {
+      logger.log("INFO", `${leaving.name} left the room.`);
+    }
   };
 
   private handleMicStatus = (detail: MicEvent) => {
