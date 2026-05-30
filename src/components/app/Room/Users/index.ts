@@ -33,6 +33,7 @@ export class RoomUsers extends LitElement {
   call?: CallApi;
 
   @state() private members: RoomMember[] = [];
+  @state() private playingScreens = new Set<string>();
 
   private requestedRoom?: string;
 
@@ -65,6 +66,11 @@ export class RoomUsers extends LitElement {
       // roster (mute states included) to avoid racing the join broadcast.
       this.members = this.withSelf(this.room.users ?? []);
       this.refreshMembers(this.room.name);
+    }
+
+    if (changed.has("call")) {
+      const screenIds = new Set(this.call?.screens.map((s) => s.id) ?? []);
+      this.playingScreens = new Set([...this.playingScreens].filter((id) => screenIds.has(id)));
     }
   }
 
@@ -136,6 +142,12 @@ export class RoomUsers extends LitElement {
     return Boolean(member.sharing || this.screenStream(member.id));
   }
 
+  private isStreamPending(id: string): boolean {
+    const stream = this.screenStream(id);
+    if (!stream) return false;
+    return !this.playingScreens.has(id);
+  }
+
   private initials(name: string): string {
     const parts = name.trim().split(/\s+/).filter(Boolean);
     if (parts.length === 0) return "?";
@@ -185,8 +197,16 @@ export class RoomUsers extends LitElement {
   private renderMedia(member: RoomMember) {
     const stream = this.screenStream(member.id);
     if (stream) {
-      return html`<div class="media">
-        <video autoplay playsinline muted .srcObject=${stream}></video>
+      const pending = this.isStreamPending(member.id);
+      return html`<div class="media ${pending ? "pending" : ""}">
+        ${pending ? html`<span class="media-label">Loading screen…</span>` : ""}
+        <video
+          data-member-id=${member.id}
+          autoplay
+          playsinline
+          muted
+          .srcObject=${stream}
+        ></video>
       </div>`;
     }
 
@@ -194,8 +214,20 @@ export class RoomUsers extends LitElement {
   }
 
   protected override updated(): void {
-    this.renderRoot.querySelectorAll("video").forEach((el) => {
-      void (el as HTMLVideoElement).play().catch(() => {});
+    this.renderRoot.querySelectorAll("video[data-member-id]").forEach((el) => {
+      const video = el as HTMLVideoElement;
+      const memberId = video.dataset.memberId;
+      if (!memberId) return;
+
+      const markPlaying = () => {
+        if (!this.playingScreens.has(memberId)) {
+          this.playingScreens = new Set([...this.playingScreens, memberId]);
+        }
+      };
+
+      video.onplaying = markPlaying;
+      video.onloadeddata = markPlaying;
+      void video.play().catch(() => {});
     });
   }
 

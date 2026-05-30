@@ -6,13 +6,15 @@ import {
   callContext,
   type StartCallOptions,
 } from "../components/app/_context/call.context";
+import type { RoomMember } from "../api";
 import { logger } from "../components/app/_services/logger.service";
 import { socketService } from "../components/app/_services/socket.service";
 
 type SignalPayload = { sdp: RTCSessionDescriptionInit; from: string };
 type IcePayload = { candidate: RTCIceCandidateInit; from: string };
 type LeavePayload = { room: string; user: string };
-type Client = { id: string } | string;
+type JoinPayload = { room: string; user: RoomMember };
+type Client = { id: string; sharing?: boolean } | string;
 
 const TURN_URL = import.meta.env.VITE_TURN_URL;
 const STUN_URL = import.meta.env.VITE_STUN_URL;
@@ -180,16 +182,21 @@ export class CallProvider extends LitElement {
 
   /** replaceTrack + renegotiate per peer (matches the old working flow). */
   private async pushScreenToPeers(track: MediaStreamTrack | null): Promise<void> {
-    for (const [peerId, pc] of this.peers) {
-      try {
-        const sender = this.videoSenders.get(peerId);
-        if (!sender) continue;
+    for (const peerId of this.peers.keys()) {
+      await this.pushScreenToPeer(peerId, track);
+    }
+  }
 
-        await sender.replaceTrack(track);
-        await this.renegotiatePeer(peerId, pc);
-      } catch {
-        logger.log("ERROR", `Could not send screen to ${peerId.slice(0, 6)}.`);
-      }
+  private async pushScreenToPeer(peerId: string, track: MediaStreamTrack | null): Promise<void> {
+    const pc = this.peers.get(peerId);
+    const sender = this.videoSenders.get(peerId);
+    if (!pc || !sender) return;
+
+    try {
+      await sender.replaceTrack(track);
+      await this.renegotiatePeer(peerId, pc);
+    } catch {
+      logger.log("ERROR", `Could not send screen to ${peerId.slice(0, 6)}.`);
     }
   }
 
@@ -227,6 +234,9 @@ export class CallProvider extends LitElement {
   }
 
   private addScreen(id: string, stream: MediaStream): void {
+    const track = stream.getVideoTracks()[0];
+    if (!track || track.readyState !== "live") return;
+
     const others = this.screens.filter((s) => s.id !== id);
     this.screens = [...others, { id, stream }];
     this.publish();
@@ -271,11 +281,15 @@ export class CallProvider extends LitElement {
 
     const stream = this.videoStreamForPeer(peerId);
     const track = stream?.getVideoTracks()[0];
-    if (track && track.readyState === "live" && (!track.muted || attempt >= 8)) {
+    if (track && track.readyState === "live" && !track.muted) {
       this.clearScreenLookup(peerId);
       this.pendingShare.delete(peerId);
       this.addScreen(peerId, stream);
       return;
+    }
+
+    if (attempt === 20) {
+      socketService.socket.emit("screen-sync", { target: peerId });
     }
 
     if (attempt >= 40) return;
@@ -298,7 +312,10 @@ export class CallProvider extends LitElement {
       this.addScreen(peerId, remoteStream);
     };
 
-    track.onunmute = attach;
+    track.onunmute = () => {
+      attach();
+      this.publish();
+    };
     track.onended = () => {
       this.videoStreams.delete(peerId);
       this.sharingPeers.delete(peerId);
@@ -339,21 +356,25 @@ export class CallProvider extends LitElement {
     super.connectedCallback();
     const s = socketService.socket;
     s.on("all-clients", this.handleAllClients);
+    s.on("user-join-room", this.handlePeerJoin);
     s.on("user-leave-room", this.handlePeerLeave);
     s.on("offer", this.handleOffer);
     s.on("answer", this.handleAnswer);
     s.on("ice-candidate", this.handleIce);
     s.on("screen-status", this.handleScreenStatus);
+    s.on("screen-sync", this.handleScreenSync);
   }
 
   override disconnectedCallback(): void {
     const s = socketService.socket;
     s.off("all-clients", this.handleAllClients);
+    s.off("user-join-room", this.handlePeerJoin);
     s.off("user-leave-room", this.handlePeerLeave);
     s.off("offer", this.handleOffer);
     s.off("answer", this.handleAnswer);
     s.off("ice-candidate", this.handleIce);
     s.off("screen-status", this.handleScreenStatus);
+    s.off("screen-sync", this.handleScreenSync);
     this.teardown();
     super.disconnectedCallback();
   }
@@ -497,7 +518,7 @@ export class CallProvider extends LitElement {
     this.meterRaf = requestAnimationFrame(this.measure);
   };
 
-  private createPeer(peerId: string): RTCPeerConnection {
+  private async createPeer(peerId: string): Promise<RTCPeerConnection> {
     const pc = new RTCPeerConnection(RTC_CONFIG);
     this.peers.set(peerId, pc);
 
@@ -505,7 +526,7 @@ export class CallProvider extends LitElement {
     const videoTransceiver = pc.addTransceiver("video", { direction: "sendrecv" });
     this.videoSenders.set(peerId, videoTransceiver.sender);
     const screenTrack = this.screenStream?.getVideoTracks()[0];
-    if (screenTrack) void videoTransceiver.sender.replaceTrack(screenTrack);
+    if (screenTrack) await videoTransceiver.sender.replaceTrack(screenTrack);
 
     const stream = this.localStream;
     if (stream) {
@@ -536,6 +557,9 @@ export class CallProvider extends LitElement {
     };
 
     pc.onconnectionstatechange = () => {
+      if (pc.connectionState === "connected" && this.sharingPeers.has(peerId)) {
+        this.tryAttachScreen(peerId);
+      }
       if (pc.connectionState === "failed" || pc.connectionState === "closed") {
         this.removePeer(peerId);
       }
@@ -545,7 +569,7 @@ export class CallProvider extends LitElement {
   }
 
   private async createOffer(peerId: string): Promise<void> {
-    const pc = this.createPeer(peerId);
+    const pc = await this.createPeer(peerId);
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     socketService.socket.emit("offer", { sdp: offer, target: peerId });
@@ -575,17 +599,39 @@ export class CallProvider extends LitElement {
 
   private handleAllClients = async (clients: Client[]): Promise<void> => {
     if (!this.roomId || !Array.isArray(clients)) return;
+
+    // Seed sharers before offers so incoming video tracks are accepted.
+    for (const client of clients) {
+      const id = typeof client === "string" ? client : client.id;
+      if (!id) continue;
+      const sharing = typeof client === "object" && Boolean(client.sharing);
+      if (sharing) {
+        this.sharingPeers.add(id);
+        this.pendingShare.add(id);
+      }
+    }
+
     for (const client of clients) {
       const id = typeof client === "string" ? client : client.id;
       if (!id || this.peers.has(id)) continue;
       await this.createOffer(id);
+      if (this.sharingPeers.has(id)) this.tryAttachScreen(id);
     }
+
+    const sharingIds = [...this.sharingPeers];
+    window.setTimeout(() => {
+      for (const id of sharingIds) {
+        if (this.screens.some((s) => s.id === id)) continue;
+        socketService.socket.emit("screen-sync", { target: id });
+        this.tryAttachScreen(id);
+      }
+    }, 2500);
   };
 
   private handleOffer = async ({ sdp, from }: SignalPayload): Promise<void> => {
     if (!this.roomId) return;
 
-    const pc = this.peers.get(from) ?? this.createPeer(from);
+    const pc = this.peers.get(from) ?? (await this.createPeer(from));
 
     try {
       // Roll back a stale local offer so renegotiation offers can apply.
@@ -596,6 +642,7 @@ export class CallProvider extends LitElement {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       socketService.socket.emit("answer", { sdp: answer, target: from });
+      if (this.sharingPeers.has(from)) this.tryAttachScreen(from);
     } catch {
       logger.log("ERROR", `Failed to handle offer from ${from.slice(0, 6)}.`);
     }
@@ -607,6 +654,7 @@ export class CallProvider extends LitElement {
 
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      if (this.sharingPeers.has(from)) this.tryAttachScreen(from);
     } catch {
       logger.log("ERROR", `Failed to handle answer from ${from.slice(0, 6)}.`);
     }
@@ -617,8 +665,38 @@ export class CallProvider extends LitElement {
     if (pc && candidate) pc.addIceCandidate(new RTCIceCandidate(candidate));
   };
 
+  private handlePeerJoin = async ({ user }: JoinPayload): Promise<void> => {
+    if (!this.roomId || !this.sharing || !this.screenStream) return;
+
+    const peerId = user.id;
+    const selfId = socketService.socket.id;
+    if (!peerId || peerId === selfId) return;
+
+    const track = this.screenStream.getVideoTracks()[0];
+    if (!track) return;
+
+    // The joiner initiates the offer; once connected, always renegotiate so
+    // they receive the active screen track (initial answers can miss video).
+    for (let attempt = 0; attempt < 25; attempt++) {
+      const pc = this.peers.get(peerId);
+      const sender = this.videoSenders.get(peerId);
+      if (pc && sender) {
+        await this.pushScreenToPeer(peerId, track);
+        return;
+      }
+      await new Promise((r) => window.setTimeout(r, 200));
+    }
+  };
+
   private handlePeerLeave = (detail: LeavePayload): void => {
     this.removePeer(detail.user);
+  };
+
+  private handleScreenSync = async ({ from }: { from: string }): Promise<void> => {
+    if (!this.sharing || !this.screenStream) return;
+    const track = this.screenStream.getVideoTracks()[0];
+    if (!track) return;
+    await this.pushScreenToPeer(from, track);
   };
 
   private handleScreenStatus = (detail: { user: string; sharing: boolean }): void => {

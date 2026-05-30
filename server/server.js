@@ -194,6 +194,11 @@ io.on("connection", (socket) => {
     const others = roomMembers(room).filter((m) => m.id !== socket.id);
     socket.emit("all-clients", others);
 
+    // Replay active screen shares so late joiners / reloads attach video tracks.
+    others.filter((m) => m.sharing).forEach((m) => {
+      socket.emit("screen-status", { user: m.id, sharing: true });
+    });
+
     // Tell the room about the new member.
     socket.to(room).emit("user-join-room", { room, user: memberOf(socket) });
 
@@ -229,6 +234,12 @@ io.on("connection", (socket) => {
     socket.data.sharing = sharing;
     if (socket.room) {
       io.to(socket.room).emit("screen-status", { user: socket.id, sharing });
+    }
+  });
+
+  socket.on("screen-sync", (data) => {
+    if (data?.target) {
+      socket.to(data.target).emit("screen-sync", { from: socket.id });
     }
   });
 

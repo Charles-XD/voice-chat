@@ -79,11 +79,29 @@ export default css`
   }
 
   .media {
+    position: relative;
     width: 100%;
     aspect-ratio: 16 / 9;
     border-radius: 12px;
     overflow: hidden;
     background: #000;
+  }
+
+  .media-label {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: var(--app-muted);
+    background: color-mix(in oklab, var(--app-surface-2) 85%, #000);
+    pointer-events: none;
+  }
+
+  .media.pending video {
+    opacity: 0;
   }
 
   .media video {
