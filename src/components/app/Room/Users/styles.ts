@@ -129,33 +129,43 @@ export default css`
     transform: scaleX(-1);
   }
 
-  /* Talking: green cell highlight + pulsing halo (avatar or video frame). */
+  /* Talking: cell border/background; pulse ring on avatar or overlay (not the video). */
   .cell.speaking {
     border-color: color-mix(in oklab, var(--status-connected-dot, #22c55e) 55%, var(--app-border));
     background: color-mix(in oklab, var(--status-connected-dot, #22c55e) 8%, var(--app-surface-2));
   }
 
-  .cell.speaking .avatar,
-  .cell.speaking .media {
+  .cell.speaking .avatar {
     box-shadow: 0 0 0 3px color-mix(in oklab, var(--status-connected-dot, #22c55e) 70%, transparent);
+    animation: speaking-pulse 1.3s ease-out infinite;
+  }
+
+  /* Ring overlay — avoids repainting the video layer. */
+  .cell.speaking .media::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+    pointer-events: none;
     animation: speaking-pulse 1.3s ease-out infinite;
   }
 
   @keyframes speaking-pulse {
     0% {
-      box-shadow: 0 0 0 0 color-mix(in oklab, var(--status-connected-dot, #22c55e) 65%, transparent);
+      box-shadow: inset 0 0 0 0 color-mix(in oklab, var(--status-connected-dot, #22c55e) 65%, transparent);
     }
     70% {
-      box-shadow: 0 0 0 12px transparent;
+      box-shadow: inset 0 0 0 10px transparent;
     }
     100% {
-      box-shadow: 0 0 0 0 transparent;
+      box-shadow: inset 0 0 0 0 transparent;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .cell.speaking .avatar,
-    .cell.speaking .media {
+    .cell.speaking .media::after {
       animation: none;
     }
   }

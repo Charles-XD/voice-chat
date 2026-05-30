@@ -1,6 +1,7 @@
 import { consume } from "@lit/context";
 import { html, LitElement, type PropertyValues } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { repeat } from "lit/directives/repeat.js";
 import type { RoomMember } from "../../../../api";
 import type { User } from "../../../../interfaces/user.interface";
 import { userContext } from "../../../../providers/user.provider";
@@ -37,6 +38,33 @@ export class RoomUsers extends LitElement {
   @state() private playingVideos = new Set<string>();
 
   private requestedRoom?: string;
+  private lastCallRenderKey = "";
+
+  /** Fields that affect the user grid template (excluding speaking). */
+  private callRenderKey(call: CallApi | undefined): string {
+    if (!call) return "";
+    return [
+      call.muted,
+      call.sharing,
+      call.cameraOn,
+      call.active,
+      call.roomId,
+      call.screens.map((s) => s.id).join(","),
+      call.cameras.map((c) => c.id).join(","),
+    ].join("|");
+  }
+
+  protected override shouldUpdate(changed: PropertyValues<this>): boolean {
+    if (changed.has("call")) {
+      const key = this.callRenderKey(this.call);
+      if (key === this.lastCallRenderKey) {
+        this.syncSpeakingClasses();
+        return changed.size > 1;
+      }
+      this.lastCallRenderKey = key;
+    }
+    return true;
+  }
 
   private get selfId(): string | undefined {
     return socketService.socket.id;
@@ -72,11 +100,22 @@ export class RoomUsers extends LitElement {
     }
 
     if (changed.has("call")) {
-      const videoIds = new Set([
+      const prev = changed.get("call") as CallApi | undefined;
+      const prevStreamIds = [
+        ...(prev?.screens.map((s) => s.id) ?? []),
+        ...(prev?.cameras.map((c) => c.id) ?? []),
+      ].join(",");
+      const nextStreamIds = [
         ...(this.call?.screens.map((s) => s.id) ?? []),
         ...(this.call?.cameras.map((c) => c.id) ?? []),
-      ]);
-      this.playingVideos = new Set([...this.playingVideos].filter((id) => videoIds.has(id)));
+      ].join(",");
+      if (prevStreamIds !== nextStreamIds) {
+        const videoIds = new Set([
+          ...(this.call?.screens.map((s) => s.id) ?? []),
+          ...(this.call?.cameras.map((c) => c.id) ?? []),
+        ]);
+        this.playingVideos = new Set([...this.playingVideos].filter((id) => videoIds.has(id)));
+      }
     }
   }
 
@@ -241,7 +280,6 @@ export class RoomUsers extends LitElement {
           autoplay
           playsinline
           muted
-          .srcObject=${stream}
         ></video>
       </div>`;
     }
@@ -249,22 +287,54 @@ export class RoomUsers extends LitElement {
     return html`<div class="avatar">${this.initials(member.name)}</div>`;
   }
 
-  protected override updated(): void {
+  private syncSpeakingClasses(): void {
+    const speaking = new Set(this.call?.speaking ?? []);
+    this.renderRoot.querySelectorAll(".cell[data-member-id]").forEach((node) => {
+      const cell = node as HTMLElement;
+      const id = cell.dataset.memberId;
+      if (!id) return;
+      const member = this.members.find((m) => m.id === id);
+      cell.classList.toggle("speaking", Boolean(member && !member.muted && speaking.has(id)));
+    });
+  }
+
+  private markVideoPlaying(video: HTMLVideoElement): void {
+    const memberId = video.dataset.memberId;
+    if (!memberId || this.playingVideos.has(memberId)) return;
+    this.playingVideos = new Set([...this.playingVideos, memberId]);
+  }
+
+  private syncVideos(): void {
     this.renderRoot.querySelectorAll("video[data-member-id]").forEach((el) => {
       const video = el as HTMLVideoElement;
       const memberId = video.dataset.memberId;
       if (!memberId) return;
 
-      const markPlaying = () => {
-        if (!this.playingVideos.has(memberId)) {
-          this.playingVideos = new Set([...this.playingVideos, memberId]);
-        }
-      };
+      const member = this.members.find((m) => m.id === memberId);
+      const stream = member ? this.displayStream(member) : undefined;
 
-      video.onplaying = markPlaying;
-      video.onloadeddata = markPlaying;
-      void video.play().catch(() => {});
+      if (stream && video.srcObject !== stream) {
+        video.srcObject = stream;
+      }
+
+      if (video.dataset.videoBoundMember !== memberId) {
+        video.dataset.videoBoundMember = memberId;
+        const markPlaying = () => this.markVideoPlaying(video);
+        video.onplaying = markPlaying;
+        video.onloadeddata = markPlaying;
+      }
+
+      if (stream && video.paused) void video.play().catch(() => {});
+
+      if (stream && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        this.markVideoPlaying(video);
+      }
     });
+  }
+
+  protected override updated(): void {
+    this.syncVideos();
+    this.syncSpeakingClasses();
   }
 
   override render() {
@@ -277,17 +347,23 @@ export class RoomUsers extends LitElement {
       ${
         this.members.length
           ? html`<div class="grid">
-              ${this.orderedMembers().map((m) => {
-                const isSelf = m.id === this.selfId;
-                const sharing = this.isSharing(m);
-                const camera = this.isCamera(m);
-                const speaking = !m.muted && (this.call?.speaking?.includes(m.id) ?? false);
-                return html`<div class="cell ${sharing ? "sharing" : ""} ${camera ? "camera" : ""} ${speaking ? "speaking" : ""}">
-                  ${this.renderMedia(m)}
-                  <span class="name">${m.name}${isSelf ? " (you)" : ""}</span>
-                  ${this.renderMic(m.muted)}
-                </div>`;
-              })}
+              ${repeat(
+                this.orderedMembers(),
+                (m) => m.id,
+                (m) => {
+                  const isSelf = m.id === this.selfId;
+                  const sharing = this.isSharing(m);
+                  const camera = this.isCamera(m);
+                  return html`<div
+                    class="cell ${sharing ? "sharing" : ""} ${camera ? "camera" : ""}"
+                    data-member-id=${m.id}
+                  >
+                    ${this.renderMedia(m)}
+                    <span class="name">${m.name}${isSelf ? " (you)" : ""}</span>
+                    ${this.renderMic(m.muted)}
+                  </div>`;
+                },
+              )}
             </div>`
           : html`<p class="empty">No one is here yet.</p>`
       }
