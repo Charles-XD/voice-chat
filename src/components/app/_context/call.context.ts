@@ -10,6 +10,10 @@ export type CallState = {
   active: boolean;
   /** Socket ids of members whose mic is currently picking up speech. */
   speaking: string[];
+  /** True while the local user is sharing their screen. */
+  sharing: boolean;
+  /** Live screen-share video streams keyed by the sharer's socket id. */
+  screens: { id: string; stream: MediaStream }[];
 };
 
 export type StartCallOptions = {
@@ -30,6 +34,7 @@ export interface CallApi extends CallState {
   start(options: StartCallOptions): Promise<void>;
   leave(): void;
   setMuted(muted: boolean): void;
+  toggleScreenShare(): Promise<void>;
 }
 
 export const callContext = createContext<CallApi>(Symbol("call-context"));

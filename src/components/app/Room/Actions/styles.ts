@@ -3,6 +3,9 @@ import { css } from "lit";
 export default css`
   :host {
     display: block;
+    position: sticky;
+    top: 0;
+    z-index: 10;
   }
 
   .bar {
@@ -13,6 +16,7 @@ export default css`
     border-radius: 12px;
     border: 1px solid var(--app-border);
     background: var(--app-surface);
+    box-shadow: 0 1px 0 color-mix(in oklab, var(--app-border) 40%, transparent);
   }
 
   /* Push the leave button to the far right. */

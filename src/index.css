@@ -2,15 +2,17 @@
   --app-font: Consolas, monaco, monospace;
 }
 
-html,
-body {
+html {
   height: 100%;
-  margin: 0;
-  font-family: var(--app-font);
+  overflow: hidden;
 }
 
 body {
-  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
   margin: 0;
+  overflow: hidden;
   display: flex;
+  flex-direction: column;
+  font-family: var(--app-font);
 }

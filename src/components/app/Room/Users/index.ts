@@ -14,6 +14,7 @@ import styles from "./styles";
 type JoinEvent = { room: string; user: RoomMember };
 type LeaveEvent = { room: string; user: string };
 type MicEvent = { user: string; muted: boolean };
+type ScreenEvent = { user: string; sharing: boolean };
 
 @customElement("app-room-users")
 export class RoomUsers extends LitElement {
@@ -45,6 +46,7 @@ export class RoomUsers extends LitElement {
     socketService.socket.on("user-join-room", this.handleUserJoin);
     socketService.socket.on("user-leave-room", this.handleUserLeave);
     socketService.socket.on("mic-status", this.handleMicStatus);
+    socketService.socket.on("screen-status", this.handleScreenStatus);
   }
 
   override disconnectedCallback(): void {
@@ -52,6 +54,7 @@ export class RoomUsers extends LitElement {
     socketService.socket.off("user-join-room", this.handleUserJoin);
     socketService.socket.off("user-leave-room", this.handleUserLeave);
     socketService.socket.off("mic-status", this.handleMicStatus);
+    socketService.socket.off("screen-status", this.handleScreenStatus);
     super.disconnectedCallback();
   }
 
@@ -78,6 +81,7 @@ export class RoomUsers extends LitElement {
       id,
       name: this.user?.name ?? id.slice(0, 6),
       muted: this.call?.muted ?? true,
+      sharing: this.call?.sharing ?? false,
     };
   }
 
@@ -118,6 +122,20 @@ export class RoomUsers extends LitElement {
     );
   };
 
+  private handleScreenStatus = (detail: ScreenEvent) => {
+    this.members = this.members.map((m) =>
+      m.id === detail.user ? { ...m, sharing: detail.sharing } : m,
+    );
+  };
+
+  private screenStream(id: string): MediaStream | undefined {
+    return this.call?.screens.find((s) => s.id === id)?.stream;
+  }
+
+  private isSharing(member: RoomMember): boolean {
+    return Boolean(member.sharing || this.screenStream(member.id));
+  }
+
   private initials(name: string): string {
     const parts = name.trim().split(/\s+/).filter(Boolean);
     if (parts.length === 0) return "?";
@@ -151,11 +169,33 @@ export class RoomUsers extends LitElement {
 
   private orderedMembers(): RoomMember[] {
     const id = this.selfId;
-    if (!id) return this.members;
     return [...this.members].sort((a, b) => {
-      if (a.id === id) return -1;
-      if (b.id === id) return 1;
+      const aShare = this.isSharing(a);
+      const bShare = this.isSharing(b);
+      if (aShare && !bShare) return -1;
+      if (!aShare && bShare) return 1;
+      if (id) {
+        if (a.id === id) return -1;
+        if (b.id === id) return 1;
+      }
       return 0;
+    });
+  }
+
+  private renderMedia(member: RoomMember) {
+    const stream = this.screenStream(member.id);
+    if (stream) {
+      return html`<div class="media">
+        <video autoplay playsinline muted .srcObject=${stream}></video>
+      </div>`;
+    }
+
+    return html`<div class="avatar">${this.initials(member.name)}</div>`;
+  }
+
+  protected override updated(): void {
+    this.renderRoot.querySelectorAll("video").forEach((el) => {
+      void (el as HTMLVideoElement).play().catch(() => {});
     });
   }
 
@@ -171,9 +211,10 @@ export class RoomUsers extends LitElement {
           ? html`<div class="grid">
               ${this.orderedMembers().map((m) => {
                 const isSelf = m.id === this.selfId;
+                const sharing = this.isSharing(m);
                 const speaking = !m.muted && (this.call?.speaking?.includes(m.id) ?? false);
-                return html`<div class="cell ${speaking ? "speaking" : ""}">
-                  <div class="avatar">${this.initials(m.name)}</div>
+                return html`<div class="cell ${sharing ? "sharing" : ""} ${speaking ? "speaking" : ""}">
+                  ${this.renderMedia(m)}
                   <span class="name">${m.name}${isSelf ? " (you)" : ""}</span>
                   ${this.renderMic(m.muted)}
                 </div>`;

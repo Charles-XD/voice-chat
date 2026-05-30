@@ -26,13 +26,45 @@ export class RoomActions extends LitElement {
     this.call?.setMuted(e.detail.muted);
   };
 
+  private handleScreenShare = () => {
+    void this.call?.toggleScreenShare();
+  };
+
+  private renderScreenIcon() {
+    return html`<svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+      <line x1="8" y1="21" x2="16" y2="21"></line>
+      <line x1="12" y1="17" x2="12" y2="21"></line>
+    </svg>`;
+  }
+
   override render() {
+    const sharing = this.call?.sharing ?? false;
+
     return html`
       <div class="bar">
         <app-mute-button
           .muted=${this.call?.muted ?? true}
           @mute-change=${this.handleMute}
         ></app-mute-button>
+
+        <ui-button
+          color=${sharing ? "primary" : "secondary"}
+          @onClick=${this.handleScreenShare}
+        >
+          ${this.renderScreenIcon()}
+          <span>${sharing ? "Stop sharing" : "Share screen"}</span>
+        </ui-button>
 
         <ui-button color="error" @onClick=${this.handleLeave}>
           <svg

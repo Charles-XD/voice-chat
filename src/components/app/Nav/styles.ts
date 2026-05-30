@@ -3,9 +3,8 @@ import { css } from "lit";
 export default css`
   :host {
     display: block;
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    flex-shrink: 0;
+    width: 100%;
   }
 
   nav {

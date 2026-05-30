@@ -78,6 +78,7 @@ function memberOf(socket) {
     id: socket.id,
     name: (socket.data && socket.data.name) || socket.id.slice(0, 6),
     muted: Boolean(socket.data && socket.data.muted),
+    sharing: Boolean(socket.data && socket.data.sharing),
   };
 }
 
@@ -187,6 +188,7 @@ io.on("connection", (socket) => {
       payload && typeof payload === "object" && payload.muted !== undefined
         ? Boolean(payload.muted)
         : true;
+    socket.data.sharing = false;
 
     // Send the joiner everyone already in the room (with names + mic state).
     const others = roomMembers(room).filter((m) => m.id !== socket.id);
@@ -219,6 +221,14 @@ io.on("connection", (socket) => {
     socket.data.muted = muted;
     if (socket.room) {
       io.to(socket.room).emit("mic-status", { user: socket.id, muted });
+    }
+  });
+
+  socket.on("screen-status", (payload) => {
+    const sharing = Boolean(payload && payload.sharing);
+    socket.data.sharing = sharing;
+    if (socket.room) {
+      io.to(socket.room).emit("screen-status", { user: socket.id, sharing });
     }
   });
 

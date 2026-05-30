@@ -57,8 +57,24 @@ export class CallProvider extends LitElement {
   /** Remote audio streams keyed by peer id, rendered as <audio> elements. */
   @state() private remote: { id: string; stream: MediaStream }[] = [];
 
+  /** Active screen-share video streams (local + remote) keyed by socket id. */
+  @state() private screens: { id: string; stream: MediaStream }[] = [];
+  @state() private sharing = false;
+
   private localStream: MediaStream | null = null;
   private peers = new Map<string, RTCPeerConnection>();
+
+  // Screen sharing: our captured display stream, plus per-peer video senders
+  // (pre-negotiated so toggling needs no renegotiation) and received video
+  // streams. `pendingShare` bridges a screen-status event that arrives before
+  // its video track.
+  private screenStream: MediaStream | null = null;
+  private videoSenders = new Map<string, RTCRtpSender>();
+  private videoStreams = new Map<string, MediaStream>();
+  private pendingShare = new Set<string>();
+  /** Peers who announced they are sharing (via screen-status). */
+  private sharingPeers = new Set<string>();
+  private screenLookupTimers = new Map<string, number>();
 
   // Voice-activity detection: one analyser per stream (keyed by socket id).
   private audioContext?: AudioContext;
@@ -131,6 +147,169 @@ export class CallProvider extends LitElement {
     this.publish();
   };
 
+  private toggleScreenShare = async (): Promise<void> => {
+    if (this.sharing) {
+      this.stopScreenShare();
+    } else {
+      await this.startScreenShare();
+    }
+  };
+
+  private async startScreenShare(): Promise<void> {
+    if (this.sharing || !this.roomId) return;
+    try {
+      if (!navigator.mediaDevices?.getDisplayMedia) throw new Error("UNSUPPORTED");
+      this.screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    } catch {
+      logger.log("ERROR", "Screen share was cancelled or is unavailable.");
+      return;
+    }
+
+    const track = this.screenStream.getVideoTracks()[0];
+    if (track) track.onended = () => this.stopScreenShare();
+
+    await this.pushScreenToPeers(track);
+
+    this.sharing = true;
+    const selfId = socketService.socket.id;
+    if (selfId) this.addScreen(selfId, this.screenStream);
+    logger.log("SUCCESS", "Started sharing your screen.");
+    socketService.socket.emit("screen-status", { sharing: true });
+    this.publish();
+  }
+
+  /** replaceTrack + renegotiate per peer (matches the old working flow). */
+  private async pushScreenToPeers(track: MediaStreamTrack | null): Promise<void> {
+    for (const [peerId, pc] of this.peers) {
+      try {
+        const sender = this.videoSenders.get(peerId);
+        if (!sender) continue;
+
+        await sender.replaceTrack(track);
+        await this.renegotiatePeer(peerId, pc);
+      } catch {
+        logger.log("ERROR", `Could not send screen to ${peerId.slice(0, 6)}.`);
+      }
+    }
+  }
+
+  private async renegotiatePeer(
+    peerId: string,
+    pc: RTCPeerConnection,
+    attempt = 0,
+  ): Promise<void> {
+    if (attempt > 15) return;
+
+    if (pc.signalingState !== "stable") {
+      await new Promise((r) => window.setTimeout(r, 200));
+      return this.renegotiatePeer(peerId, pc, attempt + 1);
+    }
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    socketService.socket.emit("offer", { sdp: offer, target: peerId });
+  }
+
+  private stopScreenShare(): void {
+    if (!this.sharing) return;
+    this.screenStream?.getTracks().forEach((t) => {
+      t.stop();
+    });
+    this.screenStream = null;
+    this.sharing = false;
+
+    const selfId = socketService.socket.id;
+    if (selfId) this.removeScreen(selfId);
+    logger.log("INFO", "Stopped sharing your screen.");
+    socketService.socket.emit("screen-status", { sharing: false });
+    void this.pushScreenToPeers(null);
+    this.publish();
+  }
+
+  private addScreen(id: string, stream: MediaStream): void {
+    const others = this.screens.filter((s) => s.id !== id);
+    this.screens = [...others, { id, stream }];
+    this.publish();
+  }
+
+  private removeScreen(id: string): void {
+    if (!this.screens.some((s) => s.id === id)) return;
+    this.screens = this.screens.filter((s) => s.id !== id);
+    this.publish();
+  }
+
+  /** Resolve a peer's live screen-share stream from cache or receivers. */
+  private videoStreamForPeer(peerId: string): MediaStream | undefined {
+    const cached = this.videoStreams.get(peerId);
+    if (cached?.getVideoTracks().some((t) => t.readyState === "live")) return cached;
+
+    const pc = this.peers.get(peerId);
+    if (!pc) return cached;
+
+    const track = pc
+      .getReceivers()
+      .map((r) => r.track)
+      .find((t) => t?.kind === "video" && t.readyState === "live");
+    if (!track) return cached;
+
+    const stream = new MediaStream([track]);
+    this.videoStreams.set(peerId, stream);
+    return stream;
+  }
+
+  private clearScreenLookup(peerId: string): void {
+    const timer = this.screenLookupTimers.get(peerId);
+    if (timer !== undefined) {
+      window.clearTimeout(timer);
+      this.screenLookupTimers.delete(peerId);
+    }
+  }
+
+  /** Retry attaching a remote screen while renegotiation / ontrack completes. */
+  private tryAttachScreen(peerId: string, attempt = 0): void {
+    if (!this.sharingPeers.has(peerId)) return;
+
+    const stream = this.videoStreamForPeer(peerId);
+    const track = stream?.getVideoTracks()[0];
+    if (track && track.readyState === "live" && (!track.muted || attempt >= 8)) {
+      this.clearScreenLookup(peerId);
+      this.pendingShare.delete(peerId);
+      this.addScreen(peerId, stream);
+      return;
+    }
+
+    if (attempt >= 40) return;
+    this.clearScreenLookup(peerId);
+    this.screenLookupTimers.set(
+      peerId,
+      window.setTimeout(() => this.tryAttachScreen(peerId, attempt + 1), 250),
+    );
+  }
+
+  private bindVideoTrack(peerId: string, track: MediaStreamTrack, stream?: MediaStream): void {
+    const remoteStream = stream ?? new MediaStream([track]);
+    this.videoStreams.set(peerId, remoteStream);
+
+    const attach = () => {
+      if (!this.sharingPeers.has(peerId) && !this.pendingShare.has(peerId)) return;
+      if (track.readyState !== "live" || track.muted) return;
+      this.clearScreenLookup(peerId);
+      this.pendingShare.delete(peerId);
+      this.addScreen(peerId, remoteStream);
+    };
+
+    track.onunmute = attach;
+    track.onended = () => {
+      this.videoStreams.delete(peerId);
+      this.sharingPeers.delete(peerId);
+      this.pendingShare.delete(peerId);
+      this.clearScreenLookup(peerId);
+      this.removeScreen(peerId);
+    };
+
+    attach();
+  }
+
   @provide({ context: callContext })
   @state()
   call: CallApi = this.snapshot();
@@ -143,9 +322,12 @@ export class CallProvider extends LitElement {
       cameraOn: this.cameraOn,
       active: Boolean(this.roomId),
       speaking: [...this.speaking],
+      sharing: this.sharing,
+      screens: [...this.screens],
       start: this.start,
       leave: this.leave,
       setMuted: this.setMuted,
+      toggleScreenShare: this.toggleScreenShare,
     };
   }
 
@@ -161,6 +343,7 @@ export class CallProvider extends LitElement {
     s.on("offer", this.handleOffer);
     s.on("answer", this.handleAnswer);
     s.on("ice-candidate", this.handleIce);
+    s.on("screen-status", this.handleScreenStatus);
   }
 
   override disconnectedCallback(): void {
@@ -170,6 +353,7 @@ export class CallProvider extends LitElement {
     s.off("offer", this.handleOffer);
     s.off("answer", this.handleAnswer);
     s.off("ice-candidate", this.handleIce);
+    s.off("screen-status", this.handleScreenStatus);
     this.teardown();
     super.disconnectedCallback();
   }
@@ -207,6 +391,21 @@ export class CallProvider extends LitElement {
     });
     this.localStream = null;
     this.remote = [];
+
+    // Screen share.
+    this.screenStream?.getTracks().forEach((t) => {
+      t.stop();
+    });
+    this.screenStream = null;
+    this.sharing = false;
+    this.videoSenders.clear();
+    this.videoStreams.clear();
+    this.pendingShare.clear();
+    this.sharingPeers.clear();
+    for (const timer of this.screenLookupTimers.values()) window.clearTimeout(timer);
+    this.screenLookupTimers.clear();
+    this.screens = [];
+
     this.stopMetering();
   }
 
@@ -302,14 +501,18 @@ export class CallProvider extends LitElement {
     const pc = new RTCPeerConnection(RTC_CONFIG);
     this.peers.set(peerId, pc);
 
+    // Video transceiver first (matches the old working mesh setup).
+    const videoTransceiver = pc.addTransceiver("video", { direction: "sendrecv" });
+    this.videoSenders.set(peerId, videoTransceiver.sender);
+    const screenTrack = this.screenStream?.getVideoTracks()[0];
+    if (screenTrack) void videoTransceiver.sender.replaceTrack(screenTrack);
+
     const stream = this.localStream;
     if (stream) {
       stream.getTracks().forEach((track) => {
         pc.addTrack(track, stream);
       });
     } else {
-      // Listen-only: no mic to send, but still negotiate an audio m-line so we
-      // receive everyone else's audio.
       pc.addTransceiver("audio", { direction: "recvonly" });
     }
 
@@ -323,6 +526,11 @@ export class CallProvider extends LitElement {
     };
 
     pc.ontrack = (event) => {
+      if (event.track.kind === "video") {
+        this.bindVideoTrack(peerId, event.track, event.streams[0]);
+        return;
+      }
+
       const remoteStream = event.streams[0] ?? new MediaStream([event.track]);
       this.attachRemote(peerId, remoteStream);
     };
@@ -356,6 +564,12 @@ export class CallProvider extends LitElement {
       this.peers.delete(peerId);
     }
     this.remote = this.remote.filter((r) => r.id !== peerId);
+    this.videoSenders.delete(peerId);
+    this.videoStreams.delete(peerId);
+    this.pendingShare.delete(peerId);
+    this.sharingPeers.delete(peerId);
+    this.clearScreenLookup(peerId);
+    this.removeScreen(peerId);
     this.removeAnalyser(peerId);
   }
 
@@ -370,16 +584,32 @@ export class CallProvider extends LitElement {
 
   private handleOffer = async ({ sdp, from }: SignalPayload): Promise<void> => {
     if (!this.roomId) return;
+
     const pc = this.peers.get(from) ?? this.createPeer(from);
-    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    socketService.socket.emit("answer", { sdp: answer, target: from });
+
+    try {
+      // Roll back a stale local offer so renegotiation offers can apply.
+      if (pc.signalingState === "have-local-offer") {
+        await pc.setLocalDescription({ type: "rollback" });
+      }
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      socketService.socket.emit("answer", { sdp: answer, target: from });
+    } catch {
+      logger.log("ERROR", `Failed to handle offer from ${from.slice(0, 6)}.`);
+    }
   };
 
   private handleAnswer = async ({ sdp, from }: SignalPayload): Promise<void> => {
     const pc = this.peers.get(from);
-    if (pc) await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    if (!pc || pc.signalingState !== "have-local-offer") return;
+
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    } catch {
+      logger.log("ERROR", `Failed to handle answer from ${from.slice(0, 6)}.`);
+    }
   };
 
   private handleIce = ({ candidate, from }: IcePayload): void => {
@@ -389,6 +619,23 @@ export class CallProvider extends LitElement {
 
   private handlePeerLeave = (detail: LeavePayload): void => {
     this.removePeer(detail.user);
+  };
+
+  private handleScreenStatus = (detail: { user: string; sharing: boolean }): void => {
+    const selfId = socketService.socket.id;
+    if (detail.user === selfId) return;
+
+    if (detail.sharing) {
+      this.sharingPeers.add(detail.user);
+      this.pendingShare.add(detail.user);
+      this.tryAttachScreen(detail.user);
+    } else {
+      this.sharingPeers.delete(detail.user);
+      this.pendingShare.delete(detail.user);
+      this.clearScreenLookup(detail.user);
+      this.videoStreams.delete(detail.user);
+      this.removeScreen(detail.user);
+    }
   };
 
   render() {

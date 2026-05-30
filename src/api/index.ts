@@ -34,6 +34,7 @@ export interface RoomMember {
   /** Display name shown in the UI. */
   name: string;
   muted: boolean;
+  sharing?: boolean;
 }
 
 export interface Room {

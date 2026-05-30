@@ -52,6 +52,14 @@ export default css`
     overflow: hidden;
   }
 
+  /* Screen share: full-width row at the top of the grid. */
+  .cell.sharing {
+    grid-column: 1 / -1;
+    aspect-ratio: auto;
+    gap: 10px;
+    padding: 12px;
+  }
+
   .avatar {
     position: relative;
     width: 72px;
@@ -70,14 +78,29 @@ export default css`
     );
   }
 
-  /* Talking: green cell highlight + a pulsing halo around the avatar. The halo
-     is a box-shadow ring so it can't be clipped by the cell's overflow. */
+  .media {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+  }
+
+  .media video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  /* Talking: green cell highlight + pulsing halo (avatar or video frame). */
   .cell.speaking {
     border-color: color-mix(in oklab, var(--status-connected-dot, #22c55e) 55%, var(--app-border));
     background: color-mix(in oklab, var(--status-connected-dot, #22c55e) 8%, var(--app-surface-2));
   }
 
-  .cell.speaking .avatar {
+  .cell.speaking .avatar,
+  .cell.speaking .media {
     box-shadow: 0 0 0 3px color-mix(in oklab, var(--status-connected-dot, #22c55e) 70%, transparent);
     animation: speaking-pulse 1.3s ease-out infinite;
   }
@@ -95,7 +118,8 @@ export default css`
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .cell.speaking .avatar {
+    .cell.speaking .avatar,
+    .cell.speaking .media {
       animation: none;
     }
   }
@@ -110,6 +134,12 @@ export default css`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .cell.sharing .name {
+    padding: 0 36px 0 8px;
+    align-self: flex-start;
+    text-align: left;
   }
 
   /* Mic status badge in the bottom-right corner of the cell. */
