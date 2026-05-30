@@ -4,5 +4,6 @@ import "./Create";
 import "./Current";
 import "./Join";
 import "./Manage";
+import "./Participants";
 import "./Share";
 import "./Users";

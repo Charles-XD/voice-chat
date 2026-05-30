@@ -80,12 +80,9 @@ export default css`
     justify-content: center;
     font-size: 24px;
     font-weight: 600;
-    color: #fff;
-    background: linear-gradient(
-      135deg,
-      var(--ui-button-bg),
-      color-mix(in oklab, var(--ui-button-bg) 50%, var(--app-danger))
-    );
+    color: var(--app-text);
+    border: 1px solid var(--app-border);
+    background: color-mix(in oklab, var(--app-text) 12%, var(--app-surface));
   }
 
   .media {
@@ -217,6 +214,13 @@ export default css`
     margin: 0;
     font-size: 13px;
     color: var(--app-muted);
+  }
+
+  @media (max-width: 899px) {
+    .grid {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
   }
 
   @media (min-width: 900px) {

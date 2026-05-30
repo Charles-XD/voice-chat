@@ -90,6 +90,48 @@ function roomMembers(id) {
     .map(memberOf);
 }
 
+// Pending knock-to-join requests keyed by room id, then request id.
+const joinRequests = new Map();
+
+function pendingJoinRequests(roomId) {
+  const bucket = joinRequests.get(roomId);
+  if (!bucket) return [];
+  return Array.from(bucket.values());
+}
+
+function removeJoinRequest(roomId, requestId) {
+  const bucket = joinRequests.get(roomId);
+  if (!bucket) return;
+  bucket.delete(requestId);
+  if (bucket.size === 0) joinRequests.delete(roomId);
+}
+
+function clearJoinRequestsForSocket(socketId) {
+  for (const [roomId, bucket] of joinRequests.entries()) {
+    for (const [requestId, request] of bucket.entries()) {
+      if (request.socketId === socketId) bucket.delete(requestId);
+    }
+    if (bucket.size === 0) joinRequests.delete(roomId);
+    else notifyHostsOfJoinRequests(roomId);
+  }
+}
+
+function notifyHostsOfJoinRequests(roomId) {
+  readRoom(roomId, (err, room) => {
+    if (err || !room) return;
+    const requests = pendingJoinRequests(roomId);
+    for (const socket of hostSocketsInRoom(roomId, room.creatorId)) {
+      socket.emit("join-requests", { room: roomId, requests });
+    }
+  });
+}
+
+function hostSocketsInRoom(roomId, creatorId) {
+  return Array.from(io.sockets.adapter.rooms.get(roomId) || [])
+    .map((sid) => io.sockets.sockets.get(sid))
+    .filter((socket) => socket && socket.data && socket.data.userKey === creatorId);
+}
+
 const app = express();
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
@@ -134,6 +176,8 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);
 
+    clearJoinRequestsForSocket(socket.id);
+
     // Notify the room (if any) so member lists stay in sync.
     if (socket.room) {
       socket.to(socket.room).emit("user-leave-room", { room: socket.room, user: socket.id });
@@ -177,6 +221,10 @@ io.on("connection", (socket) => {
   socket.on("join-room", (payload, ack) => {
     const room = typeof payload === "string" ? payload : payload && payload.room;
     const name = payload && typeof payload === "object" ? payload.name : undefined;
+    const userKey =
+      payload && typeof payload === "object" && payload.userKey
+        ? String(payload.userKey)
+        : undefined;
     if (!room) {
       if (typeof ack === "function") ack({ success: false });
       return;
@@ -185,6 +233,7 @@ io.on("connection", (socket) => {
     socket.join(room);
     socket.room = room;
     socket.data.name = name || socket.id.slice(0, 6);
+    if (userKey) socket.data.userKey = userKey;
     socket.data.muted =
       payload && typeof payload === "object" && payload.muted !== undefined
         ? Boolean(payload.muted)
@@ -208,7 +257,142 @@ io.on("connection", (socket) => {
     // Tell the room about the new member.
     socket.to(room).emit("user-join-room", { room, user: memberOf(socket) });
 
+    readRoom(room, (roomErr, roomData) => {
+      if (!roomErr && roomData && socket.data.userKey === roomData.creatorId) {
+        socket.emit("join-requests", { room, requests: pendingJoinRequests(room) });
+      }
+    });
+
     if (typeof ack === "function") ack({ success: true });
+  });
+
+  socket.on("join-request", (payload, ack) => {
+    const room = payload && payload.room;
+    const userKey = payload && payload.userKey ? String(payload.userKey) : null;
+    const name = payload && payload.name ? String(payload.name).trim().slice(0, 40) : "Guest";
+    if (!room) {
+      if (typeof ack === "function") ack({ success: false, error: "BAD_REQUEST" });
+      return;
+    }
+
+    readRoom(room, (err, roomData) => {
+      if (err) {
+        if (typeof ack === "function") ack({ success: false, error: "SERVER_ERROR" });
+        return;
+      }
+      if (!roomData) {
+        if (typeof ack === "function") ack({ success: false, error: "NOT_FOUND" });
+        return;
+      }
+
+      const alreadyAllowed =
+        roomData.isPublic ||
+        (userKey && (userKey === roomData.creatorId || roomData.allowed.includes(userKey)));
+
+      if (alreadyAllowed) {
+        if (typeof ack === "function") ack({ success: true, admitted: true });
+        return;
+      }
+
+      if (!joinRequests.has(room)) joinRequests.set(room, new Map());
+
+      const bucket = joinRequests.get(room);
+      for (const [existingId, existing] of bucket.entries()) {
+        if (existing.socketId === socket.id) bucket.delete(existingId);
+      }
+
+      const requestId = crypto.randomBytes(8).toString("hex");
+      bucket.set(requestId, {
+        requestId,
+        userKey,
+        name,
+        socketId: socket.id,
+        requestedAt: Date.now(),
+      });
+
+      notifyHostsOfJoinRequests(room);
+      if (typeof ack === "function") ack({ success: true, waiting: true, requestId });
+    });
+  });
+
+  socket.on("join-request-admit", (payload, ack) => {
+    const room = payload && payload.room;
+    const requestId = payload && payload.requestId;
+    if (!room || !requestId) {
+      if (typeof ack === "function") ack({ success: false, error: "BAD_REQUEST" });
+      return;
+    }
+
+    readRoom(room, (err, roomData) => {
+      if (err || !roomData) {
+        if (typeof ack === "function") ack({ success: false, error: "NOT_FOUND" });
+        return;
+      }
+      if (socket.data.userKey !== roomData.creatorId) {
+        if (typeof ack === "function") ack({ success: false, error: "FORBIDDEN" });
+        return;
+      }
+
+      const request = joinRequests.get(room)?.get(requestId);
+      if (!request) {
+        if (typeof ack === "function") ack({ success: false, error: "NOT_FOUND" });
+        return;
+      }
+
+      const admit = () => {
+        const target = io.sockets.sockets.get(request.socketId);
+        if (target) target.emit("join-request-admitted", { room });
+        removeJoinRequest(room, requestId);
+        notifyHostsOfJoinRequests(room);
+        if (typeof ack === "function") ack({ success: true });
+      };
+
+      if (request.userKey && !roomData.allowed.includes(request.userKey)) {
+        roomData.allowed.push(request.userKey);
+        redisClient.hset(roomKey(room), "allowed", JSON.stringify(roomData.allowed), (hsetErr) => {
+          if (hsetErr) {
+            if (typeof ack === "function") ack({ success: false, error: "SERVER_ERROR" });
+            return;
+          }
+          admit();
+        });
+        return;
+      }
+
+      admit();
+    });
+  });
+
+  socket.on("join-request-deny", (payload, ack) => {
+    const room = payload && payload.room;
+    const requestId = payload && payload.requestId;
+    if (!room || !requestId) {
+      if (typeof ack === "function") ack({ success: false, error: "BAD_REQUEST" });
+      return;
+    }
+
+    readRoom(room, (err, roomData) => {
+      if (err || !roomData) {
+        if (typeof ack === "function") ack({ success: false, error: "NOT_FOUND" });
+        return;
+      }
+      if (socket.data.userKey !== roomData.creatorId) {
+        if (typeof ack === "function") ack({ success: false, error: "FORBIDDEN" });
+        return;
+      }
+
+      const request = joinRequests.get(room)?.get(requestId);
+      if (!request) {
+        if (typeof ack === "function") ack({ success: false, error: "NOT_FOUND" });
+        return;
+      }
+
+      const target = io.sockets.sockets.get(request.socketId);
+      if (target) target.emit("join-request-denied", { room });
+      removeJoinRequest(room, requestId);
+      notifyHostsOfJoinRequests(room);
+      if (typeof ack === "function") ack({ success: true });
+    });
   });
 
   socket.on("leave-room", (room) => {

@@ -8,6 +8,7 @@ export default css`
     min-height: 0;
     width: 100%;
     overflow: hidden;
+    --app-header-height: 58px;
   }
 
   app-nav {
@@ -24,6 +25,12 @@ export default css`
     padding: 24px;
     background: var(--app-bg);
     color: var(--app-text);
+  }
+
+  @media (max-width: 900px) {
+    main {
+      padding: 12px;
+    }
   }
 
   main > voice-app {

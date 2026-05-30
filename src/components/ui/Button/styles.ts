@@ -77,6 +77,30 @@ export default css`
     opacity: 0.55;
   }
 
+  ::slotted(svg) {
+    display: block;
+    flex-shrink: 0;
+  }
+
+  ::slotted(span) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  button svg {
+    display: block;
+    flex-shrink: 0;
+  }
+
+  button span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   /*
    * Loading: a "shooting star" comet glides around the button border at a
    * constant speed. The trail is built from many small dots that each ride the

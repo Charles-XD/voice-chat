@@ -53,7 +53,13 @@ export class App extends LitElement {
       };
 
       // Provider handles mic capture, the socket join, and WebRTC peers.
-      await this.call?.start({ roomId, title, name: this.user?.name, muted });
+      await this.call?.start({
+        roomId,
+        title,
+        name: this.user?.name,
+        userKey: this.user?.key,
+        muted,
+      });
 
       if (!returning) {
         logger.clear();
@@ -65,14 +71,34 @@ export class App extends LitElement {
     args: () => [this.roomId, this.user?.key] as const,
   });
 
+  @state() private panelCollapsed = false;
+  @state() private panelDrawerOpen = false;
+  @state() private isMobileView = false;
+
+  private mobileQuery = window.matchMedia("(max-width: 900px)");
+
+  private handleMobileChange = () => {
+    this.isMobileView = this.mobileQuery.matches;
+    if (!this.mobileQuery.matches) this.panelDrawerOpen = false;
+  };
+
+  private handleDocumentKeydown = (e: KeyboardEvent) => {
+    if (e.key === "Escape" && this.panelDrawerOpen) this.closePanelDrawer();
+  };
+
   connectedCallback() {
     super.connectedCallback();
 
+    this.isMobileView = this.mobileQuery.matches;
     this.addEventListener("room-change", this.handleRoomChange as EventListener);
+    this.mobileQuery.addEventListener("change", this.handleMobileChange);
+    document.addEventListener("keydown", this.handleDocumentKeydown);
   }
 
   disconnectedCallback() {
     this.removeEventListener("room-change", this.handleRoomChange as EventListener);
+    this.mobileQuery.removeEventListener("change", this.handleMobileChange);
+    document.removeEventListener("keydown", this.handleDocumentKeydown);
 
     super.disconnectedCallback();
   }
@@ -84,10 +110,50 @@ export class App extends LitElement {
     };
   };
 
-  @state() private panelCollapsed = false;
-
   private togglePanel() {
     this.panelCollapsed = !this.panelCollapsed;
+  }
+
+  private openPanelDrawer() {
+    this.panelDrawerOpen = true;
+  }
+
+  private closePanelDrawer() {
+    this.panelDrawerOpen = false;
+  }
+
+  private renderPanelIcon() {
+    return html`<svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+      <line x1="15" y1="4" x2="15" y2="20"></line>
+    </svg>`;
+  }
+
+  private renderCloseIcon() {
+    return html`<svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>`;
   }
 
   private goBack() {
@@ -102,7 +168,9 @@ export class App extends LitElement {
 
   private renderRoom() {
     return html`
-      <div class="layout ${this.panelCollapsed ? "panel-collapsed" : ""}">
+      <div
+        class="layout ${this.panelCollapsed ? "panel-collapsed" : ""} ${this.panelDrawerOpen ? "drawer-open" : ""}"
+      >
         <button
           class="panel-toggle ${this.panelCollapsed ? "is-collapsed" : ""}"
           type="button"
@@ -110,34 +178,55 @@ export class App extends LitElement {
           aria-expanded=${!this.panelCollapsed}
           aria-label=${this.panelCollapsed ? "Show side panel" : "Hide side panel"}
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="18"
-            height="18"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="3" y="4" width="18" height="16" rx="2"></rect>
-            <line x1="15" y1="4" x2="15" y2="20"></line>
-          </svg>
+          ${this.renderPanelIcon()}
         </button>
 
         <div class="main">
-          <app-current-room></app-current-room>
+          <div class="main-head">
+            <app-current-room></app-current-room>
+            <button
+              class="panel-open-mobile"
+              type="button"
+              @click=${this.openPanelDrawer}
+              aria-expanded=${this.panelDrawerOpen}
+              aria-label="Open room details"
+            >
+              ${this.renderPanelIcon()}
+              <span>Room details</span>
+            </button>
+          </div>
           <app-room-actions></app-room-actions>
           <app-room-manage></app-room-manage>
           <app-room-users></app-room-users>
         </div>
 
-        <div class="logs">
+        <button
+          class="drawer-backdrop"
+          type="button"
+          aria-label="Close room details"
+          @click=${this.closePanelDrawer}
+        ></button>
+
+        <aside
+          class="logs"
+          aria-hidden=${this.isMobileView && !this.panelDrawerOpen ? "true" : "false"}
+        >
+          <div class="drawer-header">
+            <h2 class="drawer-title">Room details</h2>
+            <button
+              class="drawer-close"
+              type="button"
+              aria-label="Close room details"
+              @click=${this.closePanelDrawer}
+            >
+              ${this.renderCloseIcon()}
+            </button>
+          </div>
           <app-room-share></app-room-share>
+          <app-room-participants></app-room-participants>
           <app-room-chat></app-room-chat>
           <app-logs></app-logs>
-        </div>
+        </aside>
       </div>
     `;
   }

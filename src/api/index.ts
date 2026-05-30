@@ -38,6 +38,14 @@ export interface RoomMember {
   cameraOn?: boolean;
 }
 
+export interface JoinRequest {
+  requestId: string;
+  userKey: string | null;
+  name: string;
+  socketId: string;
+  requestedAt: number;
+}
+
 export interface Room {
   id: string;
   name: string;

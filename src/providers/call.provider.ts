@@ -112,7 +112,7 @@ export class CallProvider extends LitElement {
   // API actions are stable arrow fields so the provided value can reference
   // them safely. They must be declared before `call` (initialized from them).
   private start = async (options: StartCallOptions): Promise<void> => {
-    const { roomId, title, name } = options;
+    const { roomId, title, name, userKey } = options;
     const muted = options.muted ?? true;
 
     // Switching to a different room: tear down the previous call first.
@@ -137,7 +137,7 @@ export class CallProvider extends LitElement {
     this.publish();
 
     // The server replies with `all-clients`, which drives offer creation.
-    await socketService.joinRoom(roomId, name, muted);
+    await socketService.joinRoom(roomId, name, muted, userKey);
 
     // Meter our own mic so the local cell ripples while we talk.
     const selfId = socketService.socket.id;

@@ -136,11 +136,16 @@ class SocketService {
     });
   }
 
-  async joinRoom(room: string, name?: string, muted = true): Promise<boolean> {
+  async joinRoom(
+    room: string,
+    name?: string,
+    muted = true,
+    userKey?: string,
+  ): Promise<boolean> {
     // Wait until the socket is actually connected before emitting; emitting
     // against a still-connecting socket previously failed the join.
     await this.whenConnected();
-    this.socket.emit("join-room", { room, name, muted });
+    this.socket.emit("join-room", { room, name, muted, userKey });
     return true;
   }
 

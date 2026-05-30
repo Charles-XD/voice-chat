@@ -10,6 +10,7 @@ export default css`
 
   .bar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
     padding: 12px 16px;
@@ -19,12 +20,14 @@ export default css`
     box-shadow: 0 1px 0 color-mix(in oklab, var(--app-border) 40%, transparent);
   }
 
-  /* Push the leave button to the far right. */
-  .bar ui-button[color="error"] {
-    margin-left: auto;
+  .bar app-mute-button,
+  .bar ui-button {
+    flex: 0 0 auto;
+    max-width: 100%;
   }
 
-  ui-button svg {
-    display: block;
+  /* Push the leave button to the far right when space allows. */
+  .bar ui-button[color="error"] {
+    margin-left: auto;
   }
 `;

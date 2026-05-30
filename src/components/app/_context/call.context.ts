@@ -23,6 +23,8 @@ export type StartCallOptions = {
   title: string;
   /** Display name announced to the room. */
   name?: string;
+  /** Account key — used so the host can receive join requests. */
+  userKey?: string;
   /** Initial mic state for a fresh join (ignored when returning to a call). */
   muted?: boolean;
 };
