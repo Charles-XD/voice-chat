@@ -1,6 +1,7 @@
+import { consume } from "@lit/context";
 import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { type ActiveCall, callService } from "../_services/call.service";
+import { type CallApi, callContext } from "../_context/call.context";
 
 import styles from "./styles";
 
@@ -11,21 +12,9 @@ export class CallIndicator extends LitElement {
   /** Current route path, provided by the router. */
   @property() path = "";
 
-  @state() private call: ActiveCall | null = null;
-
-  private unsubscribe?: () => void;
-
-  override connectedCallback(): void {
-    super.connectedCallback();
-    this.unsubscribe = callService.subscribe((call) => {
-      this.call = call;
-    });
-  }
-
-  override disconnectedCallback(): void {
-    this.unsubscribe?.();
-    super.disconnectedCallback();
-  }
+  @consume({ context: callContext, subscribe: true })
+  @state()
+  private call?: CallApi;
 
   private get inCallRoute(): boolean {
     return this.path.startsWith("/voice/");
@@ -33,14 +22,15 @@ export class CallIndicator extends LitElement {
 
   private get open(): boolean {
     // Show only when there's an active call and we're not already on its page.
-    return Boolean(this.call) && !this.inCallRoute;
+    return Boolean(this.call?.active) && !this.inCallRoute;
   }
 
   private returnToCall() {
-    if (!this.call) return;
+    const roomId = this.call?.roomId;
+    if (!roomId) return;
     this.dispatchEvent(
       new CustomEvent("navigate", {
-        detail: `/voice/${encodeURIComponent(this.call.roomId)}`,
+        detail: `/voice/${encodeURIComponent(roomId)}`,
         bubbles: true,
         composed: true,
       }),

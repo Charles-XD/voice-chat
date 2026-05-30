@@ -4,10 +4,9 @@ import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { canJoinRoom } from "./api";
 import styles from "./app.styles";
+import { type CallApi, callContext } from "./components/app/_context/call.context";
 import { type RoomState, roomContext } from "./components/app/_context/room.context";
-import { callService } from "./components/app/_services/call.service";
 import { logger } from "./components/app/_services/logger.service";
-import { socketService } from "./components/app/_services/socket.service";
 import type { User } from "./interfaces/user.interface";
 import { userContext } from "./providers/user.provider";
 
@@ -20,6 +19,10 @@ export class App extends LitElement {
   @consume({ context: userContext, subscribe: true })
   private user?: User | null;
 
+  @consume({ context: callContext, subscribe: true })
+  @state()
+  private call?: CallApi;
+
   @provide({ context: roomContext })
   @state()
   private room: RoomState = {
@@ -30,22 +33,14 @@ export class App extends LitElement {
     task: async ([roomId, key], { signal }) => {
       if (!roomId) throw new Error("MISSING_ROOM_ID");
 
-      await socketService.whenConnected();
-
       const { allowed, room } = await canJoinRoom(roomId, key, signal);
       if (!allowed) throw new Error("FORBIDDEN");
 
-      const active = callService.current;
-      const returning = active?.roomId === roomId;
-      if (active && !returning) {
-        await socketService.leaveRoom(active.roomId);
-        callService.end();
-      }
-
-      const muted = returning ? active.muted : true;
-      const cameraOn = returning ? active.cameraOn : false;
-
-      await socketService.joinRoom(roomId, this.user?.name, muted);
+      // The call provider is the single source of truth and persists across
+      // navigation, so "returning" means it already holds this very room.
+      const call = this.call;
+      const returning = call?.active === true && call.roomId === roomId;
+      const muted = returning ? call.muted : true;
 
       const title = room?.name ?? roomId;
       this.room = {
@@ -57,7 +52,8 @@ export class App extends LitElement {
         users: room?.users ?? [],
       };
 
-      callService.start({ roomId, title, muted, cameraOn });
+      // Provider handles mic capture, the socket join, and WebRTC peers.
+      await this.call?.start({ roomId, title, name: this.user?.name, muted });
 
       if (!returning) {
         logger.clear();

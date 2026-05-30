@@ -1,10 +1,7 @@
 import { consume } from "@lit/context";
 import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { type RoomState, roomContext } from "../../_context/room.context";
-import { callService } from "../../_services/call.service";
-import { logger } from "../../_services/logger.service";
-import { socketService } from "../../_services/socket.service";
+import { type CallApi, callContext } from "../../_context/call.context";
 
 import styles from "./styles";
 
@@ -12,52 +9,30 @@ import styles from "./styles";
 export class RoomActions extends LitElement {
   static styles = styles;
 
-  @consume({ context: roomContext, subscribe: true })
+  @consume({ context: callContext, subscribe: true })
   @state()
-  room?: RoomState;
-
-  @state() private muted = true;
-
-  private unsubscribe?: () => void;
-
-  override connectedCallback(): void {
-    super.connectedCallback();
-    // Mirror the single source of truth for mic state.
-    this.unsubscribe = callService.subscribe((call) => {
-      this.muted = call?.muted ?? true;
-    });
-  }
-
-  override disconnectedCallback(): void {
-    this.unsubscribe?.();
-    super.disconnectedCallback();
-  }
+  call?: CallApi;
 
   private navigate(url: string) {
     this.dispatchEvent(new CustomEvent("navigate", { detail: url, bubbles: true, composed: true }));
   }
 
-  private async handleLeave() {
-    const name = this.room?.name;
-    if (name) {
-      await socketService.leaveRoom(name);
-      logger.log("ERROR", `Left the room (${this.room?.title ?? name}).`);
-    }
-    callService.end();
+  private handleLeave = () => {
+    this.call?.leave();
     this.navigate("/join");
-  }
+  };
 
   private handleMute = (e: CustomEvent<{ muted: boolean }>) => {
-    const { muted } = e.detail;
-    logger.log("INFO", muted ? "Mute" : "Unmute");
-    callService.update({ muted });
-    socketService.socket.emit("mic-status", { muted });
+    this.call?.setMuted(e.detail.muted);
   };
 
   override render() {
     return html`
       <div class="bar">
-        <app-mute-button .muted=${this.muted} @mute-change=${this.handleMute}></app-mute-button>
+        <app-mute-button
+          .muted=${this.call?.muted ?? true}
+          @mute-change=${this.handleMute}
+        ></app-mute-button>
 
         <ui-button color="error" @onClick=${this.handleLeave}>
           <svg

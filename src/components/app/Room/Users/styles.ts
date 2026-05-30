@@ -53,6 +53,7 @@ export default css`
   }
 
   .avatar {
+    position: relative;
     width: 72px;
     height: 72px;
     border-radius: 50%;
@@ -67,6 +68,36 @@ export default css`
       var(--ui-button-bg),
       color-mix(in oklab, var(--ui-button-bg) 50%, var(--app-danger))
     );
+  }
+
+  /* Talking: green cell highlight + a pulsing halo around the avatar. The halo
+     is a box-shadow ring so it can't be clipped by the cell's overflow. */
+  .cell.speaking {
+    border-color: color-mix(in oklab, var(--status-connected-dot, #22c55e) 55%, var(--app-border));
+    background: color-mix(in oklab, var(--status-connected-dot, #22c55e) 8%, var(--app-surface-2));
+  }
+
+  .cell.speaking .avatar {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--status-connected-dot, #22c55e) 70%, transparent);
+    animation: speaking-pulse 1.3s ease-out infinite;
+  }
+
+  @keyframes speaking-pulse {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in oklab, var(--status-connected-dot, #22c55e) 65%, transparent);
+    }
+    70% {
+      box-shadow: 0 0 0 12px transparent;
+    }
+    100% {
+      box-shadow: 0 0 0 0 transparent;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cell.speaking .avatar {
+      animation: none;
+    }
   }
 
   .name {

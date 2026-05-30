@@ -4,8 +4,8 @@ import { customElement, state } from "lit/decorators.js";
 import type { RoomMember } from "../../../../api";
 import type { User } from "../../../../interfaces/user.interface";
 import { userContext } from "../../../../providers/user.provider";
+import { type CallApi, callContext } from "../../_context/call.context";
 import { type RoomState, roomContext } from "../../_context/room.context";
-import { callService } from "../../_services/call.service";
 import { logger } from "../../_services/logger.service";
 import { socketService } from "../../_services/socket.service";
 
@@ -26,6 +26,10 @@ export class RoomUsers extends LitElement {
   @consume({ context: userContext, subscribe: true })
   @state()
   user?: User | null;
+
+  @consume({ context: callContext, subscribe: true })
+  @state()
+  call?: CallApi;
 
   @state() private members: RoomMember[] = [];
 
@@ -73,7 +77,7 @@ export class RoomUsers extends LitElement {
     return {
       id,
       name: this.user?.name ?? id.slice(0, 6),
-      muted: callService.current?.muted ?? true,
+      muted: this.call?.muted ?? true,
     };
   }
 
@@ -167,7 +171,8 @@ export class RoomUsers extends LitElement {
           ? html`<div class="grid">
               ${this.orderedMembers().map((m) => {
                 const isSelf = m.id === this.selfId;
-                return html`<div class="cell">
+                const speaking = !m.muted && (this.call?.speaking?.includes(m.id) ?? false);
+                return html`<div class="cell ${speaking ? "speaking" : ""}">
                   <div class="avatar">${this.initials(m.name)}</div>
                   <span class="name">${m.name}${isSelf ? " (you)" : ""}</span>
                   ${this.renderMic(m.muted)}
