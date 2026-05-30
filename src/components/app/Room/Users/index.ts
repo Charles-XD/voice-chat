@@ -5,6 +5,7 @@ import type { RoomMember } from "../../../../api";
 import type { User } from "../../../../interfaces/user.interface";
 import { userContext } from "../../../../providers/user.provider";
 import { type RoomState, roomContext } from "../../_context/room.context";
+import { callService } from "../../_services/call.service";
 import { logger } from "../../_services/logger.service";
 import { socketService } from "../../_services/socket.service";
 
@@ -69,7 +70,11 @@ export class RoomUsers extends LitElement {
   private selfMember(): RoomMember | null {
     const id = this.selfId;
     if (!id) return null;
-    return { id, name: this.user?.name ?? id.slice(0, 6), muted: true };
+    return {
+      id,
+      name: this.user?.name ?? id.slice(0, 6),
+      muted: callService.current?.muted ?? true,
+    };
   }
 
   private withSelf(members: RoomMember[]): RoomMember[] {

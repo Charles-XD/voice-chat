@@ -10,10 +10,42 @@ export default css`
   }
 
   .layout {
+    position: relative;
     display: flex;
     flex: 1;
     gap: 16px;
     min-height: 0;
+  }
+
+  .panel-toggle {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+    background: var(--app-surface);
+    color: var(--app-text);
+    cursor: pointer;
+    transition: background-color 140ms ease;
+  }
+
+  .panel-toggle:hover {
+    background: color-mix(in oklab, var(--app-text) 12%, var(--app-surface));
+  }
+
+  .panel-toggle.is-collapsed {
+    color: var(--app-muted);
+  }
+
+  .layout.panel-collapsed .logs {
+    display: none;
   }
 
   .status {
@@ -44,10 +76,15 @@ export default css`
     display: flex;
     flex-direction: column;
     gap: 12px;
-    flex: 0 0 30%;
-    max-width: 30%;
-    min-width: 320px;
+    flex: 0 0 36%;
+    max-width: 36%;
+    min-width: 380px;
     min-height: 0;
+    padding: 16px;
+    padding-top: 40px;
+    background: var(--app-bg);
+    border: 1px solid var(--app-border);
+    border-radius: 14px;
   }
 
   .logs app-logs {

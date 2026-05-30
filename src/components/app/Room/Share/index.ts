@@ -17,11 +17,17 @@ export class RoomShare extends LitElement {
     const code = this.room?.name;
     if (!code) return nothing;
 
+    const link = `${window.location.origin}/voice/${code}`;
+
     return html`
-      <p class="subtitle">Share this <strong>code</strong> to invite others.</p>
+      <p class="subtitle">Share this <strong>code</strong> or <strong>link</strong> to invite others.</p>
       <div class="key-row">
         <ui-textfield class="textfield" disabled .value=${code}></ui-textfield>
         <ui-copy-button .value=${code}></ui-copy-button>
+      </div>
+      <div class="key-row">
+        <ui-textfield class="textfield" disabled .value=${link}></ui-textfield>
+        <ui-copy-button .value=${link}></ui-copy-button>
       </div>
     `;
   }

@@ -1,26 +1,21 @@
 import { html, type PropertyValues } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { Button } from "../../ui/Button";
-import { logger } from "../_services/logger.service";
 
 @customElement("app-mute-button")
 export class MuteButton extends Button {
   @property({ type: Boolean }) muted = true;
 
   protected override willUpdate(changed: PropertyValues<this>) {
-    // Muted is destructive (silenced) → error; live mic → neutral secondary.
     if (changed.has("muted")) {
       this.color = this.muted ? "error" : "secondary";
     }
   }
 
   protected override handleClick(_e: Event) {
-    this.muted = !this.muted;
-    logger.log("INFO", `${this.muted ? "Mute" : "Unmute"}`);
-
     this.dispatchEvent(
       new CustomEvent("mute-change", {
-        detail: { muted: this.muted },
+        detail: { muted: !this.muted },
         bubbles: true,
         composed: true,
       }),

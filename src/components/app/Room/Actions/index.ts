@@ -2,6 +2,7 @@ import { consume } from "@lit/context";
 import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { type RoomState, roomContext } from "../../_context/room.context";
+import { callService } from "../../_services/call.service";
 import { logger } from "../../_services/logger.service";
 import { socketService } from "../../_services/socket.service";
 
@@ -15,6 +16,23 @@ export class RoomActions extends LitElement {
   @state()
   room?: RoomState;
 
+  @state() private muted = true;
+
+  private unsubscribe?: () => void;
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+    // Mirror the single source of truth for mic state.
+    this.unsubscribe = callService.subscribe((call) => {
+      this.muted = call?.muted ?? true;
+    });
+  }
+
+  override disconnectedCallback(): void {
+    this.unsubscribe?.();
+    super.disconnectedCallback();
+  }
+
   private navigate(url: string) {
     this.dispatchEvent(new CustomEvent("navigate", { detail: url, bubbles: true, composed: true }));
   }
@@ -25,18 +43,21 @@ export class RoomActions extends LitElement {
       await socketService.leaveRoom(name);
       logger.log("ERROR", `Left the room (${this.room?.title ?? name}).`);
     }
+    callService.end();
     this.navigate("/join");
   }
 
   private handleMute = (e: CustomEvent<{ muted: boolean }>) => {
-    // Broadcast our mic state so other members' rosters update.
-    socketService.socket.emit("mic-status", { muted: e.detail.muted });
+    const { muted } = e.detail;
+    logger.log("INFO", muted ? "Mute" : "Unmute");
+    callService.update({ muted });
+    socketService.socket.emit("mic-status", { muted });
   };
 
   override render() {
     return html`
       <div class="bar">
-        <app-mute-button @mute-change=${this.handleMute}></app-mute-button>
+        <app-mute-button .muted=${this.muted} @mute-change=${this.handleMute}></app-mute-button>
 
         <ui-button color="error" @onClick=${this.handleLeave}>
           <svg

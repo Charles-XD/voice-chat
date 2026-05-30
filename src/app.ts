@@ -5,6 +5,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { canJoinRoom } from "./api";
 import styles from "./app.styles";
 import { type RoomState, roomContext } from "./components/app/_context/room.context";
+import { callService } from "./components/app/_services/call.service";
 import { logger } from "./components/app/_services/logger.service";
 import { socketService } from "./components/app/_services/socket.service";
 import type { User } from "./interfaces/user.interface";
@@ -14,7 +15,6 @@ import { userContext } from "./providers/user.provider";
 export class App extends LitElement {
   static styles = styles;
 
-  /** Room to join, taken from the /voice/:roomId route. */
   @property() roomId = "";
 
   @consume({ context: userContext, subscribe: true })
@@ -26,30 +26,43 @@ export class App extends LitElement {
     name: "",
   };
 
-  // Validates the user can join, then joins the room. Re-runs if roomId changes.
   private _joinTask = new Task(this, {
     task: async ([roomId, key], { signal }) => {
       if (!roomId) throw new Error("MISSING_ROOM_ID");
 
-      // Wait for the realtime connection before doing anything else — on a
-      // fresh page load (slower in Firefox) the socket may still be connecting.
       await socketService.whenConnected();
 
       const { allowed, room } = await canJoinRoom(roomId, key, signal);
       if (!allowed) throw new Error("FORBIDDEN");
 
-      await socketService.joinRoom(roomId, this.user?.name);
+      const active = callService.current;
+      const returning = active?.roomId === roomId;
+      if (active && !returning) {
+        await socketService.leaveRoom(active.roomId);
+        callService.end();
+      }
 
+      const muted = returning ? active.muted : true;
+      const cameraOn = returning ? active.cameraOn : false;
+
+      await socketService.joinRoom(roomId, this.user?.name, muted);
+
+      const title = room?.name ?? roomId;
       this.room = {
         name: roomId,
-        title: room?.name ?? roomId,
+        title,
         isPublic: room?.isPublic,
         creatorId: room?.creatorId,
         allowed: room?.allowed ?? [],
         users: room?.users ?? [],
       };
-      logger.clear();
-      logger.log("SUCCESS", `Joined the room (${this.room.title}).`);
+
+      callService.start({ roomId, title, muted, cameraOn });
+
+      if (!returning) {
+        logger.clear();
+        logger.log("SUCCESS", `Joined the room (${title}).`);
+      }
 
       return roomId;
     },
@@ -75,6 +88,12 @@ export class App extends LitElement {
     };
   };
 
+  @state() private panelCollapsed = false;
+
+  private togglePanel() {
+    this.panelCollapsed = !this.panelCollapsed;
+  }
+
   private goBack() {
     this.dispatchEvent(
       new CustomEvent("navigate", {
@@ -87,17 +106,40 @@ export class App extends LitElement {
 
   private renderRoom() {
     return html`
-      <div class="layout">
+      <div class="layout ${this.panelCollapsed ? "panel-collapsed" : ""}">
+        <button
+          class="panel-toggle ${this.panelCollapsed ? "is-collapsed" : ""}"
+          type="button"
+          @click=${this.togglePanel}
+          aria-expanded=${!this.panelCollapsed}
+          aria-label=${this.panelCollapsed ? "Show side panel" : "Hide side panel"}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+            <line x1="15" y1="4" x2="15" y2="20"></line>
+          </svg>
+        </button>
+
         <div class="main">
           <app-current-room></app-current-room>
           <app-room-actions></app-room-actions>
           <app-room-manage></app-room-manage>
           <app-room-users></app-room-users>
-          <app-room-chat></app-room-chat>
         </div>
 
         <div class="logs">
           <app-room-share></app-room-share>
+          <app-room-chat></app-room-chat>
           <app-logs></app-logs>
         </div>
       </div>

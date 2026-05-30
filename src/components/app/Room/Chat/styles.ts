@@ -15,13 +15,55 @@ export default css`
     overflow: hidden;
   }
 
-  .title {
+  /* Collapsed: only the header remains visible. */
+  .chat.collapsed {
+    height: auto;
+  }
+
+  .head {
     flex: 0 0 auto;
-    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding: 12px 16px;
+    border-bottom: 1px solid var(--app-border);
+  }
+
+  .chat.collapsed .head {
+    border-bottom: none;
+  }
+
+  .title {
+    margin: 0;
     font-size: 15px;
     color: var(--app-text);
-    border-bottom: 1px solid var(--app-border);
+  }
+
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+    background: var(--app-surface-2);
+    color: var(--app-text);
+    cursor: pointer;
+    transition:
+      background-color 140ms ease,
+      transform 160ms ease;
+  }
+
+  .toggle:hover {
+    background: color-mix(in oklab, var(--app-text) 12%, var(--app-surface));
+  }
+
+  /* Point the chevron up when collapsed to hint "expand". */
+  .toggle.is-collapsed {
+    transform: rotate(180deg);
   }
 
   .messages {
@@ -89,11 +131,17 @@ export default css`
     border-top: 1px solid var(--app-border);
   }
 
+  .composer ui-button {
+    height: 38px;
+    display: flex;
+    align-items: center;
+  }
+
   .field {
     flex: 1 1 auto;
     box-sizing: border-box;
     min-height: 38px;
-    max-height: 120px;
+    max-height: 92px;
     padding: 9px 12px;
     resize: none;
     overflow-y: auto;

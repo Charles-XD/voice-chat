@@ -13,6 +13,7 @@ import "./pages/settings/settings.page";
 import "./app";
 
 import { consume } from "@lit/context";
+import "./components/app/CallIndicator";
 import "./components/app/Nav";
 import { logger } from "./components/app/_services/logger.service";
 import { UserController } from "./controllers/user.controller";
@@ -82,6 +83,11 @@ class AppRouter extends LitElement {
 
   render() {
     return html`
+      <app-call-indicator
+        .path=${window.location.pathname}
+        @navigate=${this.onNavigate}
+      ></app-call-indicator>
+
       <app-nav .path=${window.location.pathname} @logout=${this.handleLogout}></app-nav>
 
       <main>${this.router.outlet()}</main>
