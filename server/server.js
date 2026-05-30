@@ -79,6 +79,7 @@ function memberOf(socket) {
     name: (socket.data && socket.data.name) || socket.id.slice(0, 6),
     muted: Boolean(socket.data && socket.data.muted),
     sharing: Boolean(socket.data && socket.data.sharing),
+    cameraOn: Boolean(socket.data && socket.data.cameraOn),
   };
 }
 
@@ -189,6 +190,7 @@ io.on("connection", (socket) => {
         ? Boolean(payload.muted)
         : true;
     socket.data.sharing = false;
+    socket.data.cameraOn = false;
 
     // Send the joiner everyone already in the room (with names + mic state).
     const others = roomMembers(room).filter((m) => m.id !== socket.id);
@@ -197,6 +199,10 @@ io.on("connection", (socket) => {
     // Replay active screen shares so late joiners / reloads attach video tracks.
     others.filter((m) => m.sharing).forEach((m) => {
       socket.emit("screen-status", { user: m.id, sharing: true });
+    });
+
+    others.filter((m) => m.cameraOn).forEach((m) => {
+      socket.emit("camera-status", { user: m.id, cameraOn: true });
     });
 
     // Tell the room about the new member.
@@ -237,9 +243,23 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("camera-status", (payload) => {
+    const cameraOn = Boolean(payload && payload.cameraOn);
+    socket.data.cameraOn = cameraOn;
+    if (socket.room) {
+      io.to(socket.room).emit("camera-status", { user: socket.id, cameraOn });
+    }
+  });
+
   socket.on("screen-sync", (data) => {
     if (data?.target) {
       socket.to(data.target).emit("screen-sync", { from: socket.id });
+    }
+  });
+
+  socket.on("camera-sync", (data) => {
+    if (data?.target) {
+      socket.to(data.target).emit("camera-sync", { from: socket.id });
     }
   });
 

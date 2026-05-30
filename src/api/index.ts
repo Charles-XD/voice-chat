@@ -35,6 +35,7 @@ export interface RoomMember {
   name: string;
   muted: boolean;
   sharing?: boolean;
+  cameraOn?: boolean;
 }
 
 export interface Room {

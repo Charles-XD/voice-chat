@@ -14,6 +14,8 @@ export type CallState = {
   sharing: boolean;
   /** Live screen-share video streams keyed by the sharer's socket id. */
   screens: { id: string; stream: MediaStream }[];
+  /** Live camera video streams keyed by the member's socket id. */
+  cameras: { id: string; stream: MediaStream }[];
 };
 
 export type StartCallOptions = {
@@ -35,6 +37,7 @@ export interface CallApi extends CallState {
   leave(): void;
   setMuted(muted: boolean): void;
   toggleScreenShare(): Promise<void>;
+  toggleCamera(): Promise<void>;
 }
 
 export const callContext = createContext<CallApi>(Symbol("call-context"));

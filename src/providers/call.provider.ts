@@ -1,4 +1,4 @@
-import { provide } from "@lit/context";
+import { consume, provide } from "@lit/context";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import {
@@ -7,14 +7,19 @@ import {
   type StartCallOptions,
 } from "../components/app/_context/call.context";
 import type { RoomMember } from "../api";
+import {
+  type AppSettings,
+  DEFAULT_SETTINGS,
+} from "../interfaces/settings.interface";
 import { logger } from "../components/app/_services/logger.service";
+import { settingsContext } from "./settings.provider";
 import { socketService } from "../components/app/_services/socket.service";
 
 type SignalPayload = { sdp: RTCSessionDescriptionInit; from: string };
 type IcePayload = { candidate: RTCIceCandidateInit; from: string };
 type LeavePayload = { room: string; user: string };
 type JoinPayload = { room: string; user: RoomMember };
-type Client = { id: string; sharing?: boolean } | string;
+type Client = { id: string; sharing?: boolean; cameraOn?: boolean } | string;
 
 const TURN_URL = import.meta.env.VITE_TURN_URL;
 const STUN_URL = import.meta.env.VITE_STUN_URL;
@@ -56,11 +61,17 @@ export class CallProvider extends LitElement {
   @state() private muted = true;
   @state() private cameraOn = false;
 
+  @consume({ context: settingsContext, subscribe: true })
+  @state()
+  private settings: AppSettings = DEFAULT_SETTINGS;
+
   /** Remote audio streams keyed by peer id, rendered as <audio> elements. */
   @state() private remote: { id: string; stream: MediaStream }[] = [];
 
   /** Active screen-share video streams (local + remote) keyed by socket id. */
   @state() private screens: { id: string; stream: MediaStream }[] = [];
+  /** Active camera video streams (local + remote) keyed by socket id. */
+  @state() private cameras: { id: string; stream: MediaStream }[] = [];
   @state() private sharing = false;
 
   private localStream: MediaStream | null = null;
@@ -71,12 +82,18 @@ export class CallProvider extends LitElement {
   // streams. `pendingShare` bridges a screen-status event that arrives before
   // its video track.
   private screenStream: MediaStream | null = null;
+  private cameraStream: MediaStream | null = null;
   private videoSenders = new Map<string, RTCRtpSender>();
   private videoStreams = new Map<string, MediaStream>();
   private pendingShare = new Set<string>();
+  private pendingCamera = new Set<string>();
   /** Peers who announced they are sharing (via screen-status). */
   private sharingPeers = new Set<string>();
+  /** Peers who announced their camera is on (via camera-status). */
+  private cameraPeers = new Set<string>();
   private screenLookupTimers = new Map<string, number>();
+  private cameraLookupTimers = new Map<string, number>();
+  private lastAppliedCameraId?: string;
 
   // Voice-activity detection: one analyser per stream (keyed by socket id).
   private audioContext?: AudioContext;
@@ -157,6 +174,37 @@ export class CallProvider extends LitElement {
     }
   };
 
+  private toggleCamera = async (): Promise<void> => {
+    if (this.cameraOn) {
+      this.stopCamera();
+    } else {
+      await this.startCamera();
+    }
+  };
+
+  /** Outgoing video prioritizes screen share over camera. */
+  private activeOutgoingVideoTrack(): MediaStreamTrack | null {
+    const screen = this.screenStream?.getVideoTracks()[0];
+    if (this.sharing && screen?.readyState === "live") return screen;
+    const camera = this.cameraStream?.getVideoTracks()[0];
+    if (this.cameraOn && camera?.readyState === "live") return camera;
+    return null;
+  }
+
+  private cameraVideoConstraints(): MediaTrackConstraints {
+    return this.settings.cameraId
+      ? { deviceId: { exact: this.settings.cameraId } }
+      : { facingMode: "user" };
+  }
+
+  private async acquireCameraStream(): Promise<MediaStream> {
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("UNSUPPORTED");
+    return navigator.mediaDevices.getUserMedia({
+      video: this.cameraVideoConstraints(),
+      audio: false,
+    });
+  }
+
   private async startScreenShare(): Promise<void> {
     if (this.sharing || !this.roomId) return;
     try {
@@ -170,24 +218,27 @@ export class CallProvider extends LitElement {
     const track = this.screenStream.getVideoTracks()[0];
     if (track) track.onended = () => this.stopScreenShare();
 
-    await this.pushScreenToPeers(track);
+    await this.pushVideoToPeers(track);
 
     this.sharing = true;
     const selfId = socketService.socket.id;
-    if (selfId) this.addScreen(selfId, this.screenStream);
+    if (selfId) {
+      this.removeCamera(selfId);
+      this.addScreen(selfId, this.screenStream);
+    }
     logger.log("SUCCESS", "Started sharing your screen.");
     socketService.socket.emit("screen-status", { sharing: true });
     this.publish();
   }
 
-  /** replaceTrack + renegotiate per peer (matches the old working flow). */
-  private async pushScreenToPeers(track: MediaStreamTrack | null): Promise<void> {
+  /** replaceTrack + renegotiate per peer. Screen takes priority over camera. */
+  private async pushVideoToPeers(track: MediaStreamTrack | null): Promise<void> {
     for (const peerId of this.peers.keys()) {
-      await this.pushScreenToPeer(peerId, track);
+      await this.pushVideoToPeer(peerId, track);
     }
   }
 
-  private async pushScreenToPeer(peerId: string, track: MediaStreamTrack | null): Promise<void> {
+  private async pushVideoToPeer(peerId: string, track: MediaStreamTrack | null): Promise<void> {
     const pc = this.peers.get(peerId);
     const sender = this.videoSenders.get(peerId);
     if (!pc || !sender) return;
@@ -229,7 +280,78 @@ export class CallProvider extends LitElement {
     if (selfId) this.removeScreen(selfId);
     logger.log("INFO", "Stopped sharing your screen.");
     socketService.socket.emit("screen-status", { sharing: false });
-    void this.pushScreenToPeers(null);
+    void this.pushVideoToPeers(this.activeOutgoingVideoTrack());
+    if (selfId && this.cameraOn && this.cameraStream) {
+      this.addCamera(selfId, this.cameraStream);
+    }
+    this.publish();
+  }
+
+  private async startCamera(): Promise<void> {
+    if (this.cameraOn || !this.roomId) return;
+    try {
+      this.cameraStream = await this.acquireCameraStream();
+    } catch {
+      logger.log("ERROR", "Camera was cancelled or is unavailable.");
+      return;
+    }
+
+    const track = this.cameraStream.getVideoTracks()[0];
+    if (track) track.onended = () => this.stopCamera();
+
+    this.cameraOn = true;
+    const selfId = socketService.socket.id;
+
+    // Renegotiate first so peers receive the track before we announce camera-on.
+    if (!this.sharing) {
+      await this.pushVideoToPeers(track);
+    }
+
+    socketService.socket.emit("camera-status", { cameraOn: true });
+    logger.log("SUCCESS", "Camera on.");
+
+    if (selfId) this.addCamera(selfId, this.cameraStream);
+    this.publish();
+  }
+
+  private async restartCameraStream(): Promise<void> {
+    if (!this.cameraOn || !this.roomId) return;
+
+    this.cameraStream?.getTracks().forEach((t) => {
+      t.stop();
+    });
+    this.cameraStream = null;
+
+    try {
+      this.cameraStream = await this.acquireCameraStream();
+    } catch {
+      logger.log("ERROR", "Could not switch to the selected camera.");
+      this.stopCamera();
+      return;
+    }
+
+    const track = this.cameraStream.getVideoTracks()[0];
+    if (track) track.onended = () => this.stopCamera();
+
+    const selfId = socketService.socket.id;
+    if (selfId) this.addCamera(selfId, this.cameraStream);
+    if (!this.sharing) await this.pushVideoToPeers(track);
+    this.publish();
+  }
+
+  private stopCamera(): void {
+    if (!this.cameraOn) return;
+    this.cameraStream?.getTracks().forEach((t) => {
+      t.stop();
+    });
+    this.cameraStream = null;
+    this.cameraOn = false;
+
+    const selfId = socketService.socket.id;
+    if (selfId) this.removeCamera(selfId);
+    logger.log("INFO", "Camera off.");
+    socketService.socket.emit("camera-status", { cameraOn: false });
+    if (!this.sharing) void this.pushVideoToPeers(null);
     this.publish();
   }
 
@@ -246,6 +368,54 @@ export class CallProvider extends LitElement {
     if (!this.screens.some((s) => s.id === id)) return;
     this.screens = this.screens.filter((s) => s.id !== id);
     this.publish();
+  }
+
+  private addCamera(id: string, stream: MediaStream): void {
+    if (this.sharingPeers.has(id)) return;
+    const track = stream.getVideoTracks()[0];
+    if (!track || track.readyState !== "live") return;
+
+    const others = this.cameras.filter((c) => c.id !== id);
+    this.cameras = [...others, { id, stream }];
+    this.publish();
+  }
+
+  private removeCamera(id: string): void {
+    if (!this.cameras.some((c) => c.id === id)) return;
+    this.cameras = this.cameras.filter((c) => c.id !== id);
+    this.publish();
+  }
+
+  private clearCameraLookup(peerId: string): void {
+    const timer = this.cameraLookupTimers.get(peerId);
+    if (timer !== undefined) {
+      window.clearTimeout(timer);
+      this.cameraLookupTimers.delete(peerId);
+    }
+  }
+
+  private tryAttachCamera(peerId: string, attempt = 0): void {
+    if (!this.cameraPeers.has(peerId) || this.sharingPeers.has(peerId)) return;
+
+    const stream = this.videoStreamForPeer(peerId);
+    const track = stream?.getVideoTracks()[0];
+    if (track && track.readyState === "live" && !track.muted) {
+      this.clearCameraLookup(peerId);
+      this.pendingCamera.delete(peerId);
+      this.addCamera(peerId, stream);
+      return;
+    }
+
+    if (attempt === 20) {
+      socketService.socket.emit("camera-sync", { target: peerId });
+    }
+
+    if (attempt >= 40) return;
+    this.clearCameraLookup(peerId);
+    this.cameraLookupTimers.set(
+      peerId,
+      window.setTimeout(() => this.tryAttachCamera(peerId, attempt + 1), 250),
+    );
   }
 
   /** Resolve a peer's live screen-share stream from cache or receivers. */
@@ -305,11 +475,20 @@ export class CallProvider extends LitElement {
     this.videoStreams.set(peerId, remoteStream);
 
     const attach = () => {
-      if (!this.sharingPeers.has(peerId) && !this.pendingShare.has(peerId)) return;
       if (track.readyState !== "live" || track.muted) return;
-      this.clearScreenLookup(peerId);
-      this.pendingShare.delete(peerId);
-      this.addScreen(peerId, remoteStream);
+
+      if (this.sharingPeers.has(peerId) || this.pendingShare.has(peerId)) {
+        this.removeCamera(peerId);
+        this.clearScreenLookup(peerId);
+        this.pendingShare.delete(peerId);
+        this.addScreen(peerId, remoteStream);
+        return;
+      }
+
+      if (!this.cameraPeers.has(peerId) && !this.pendingCamera.has(peerId)) return;
+      this.clearCameraLookup(peerId);
+      this.pendingCamera.delete(peerId);
+      this.addCamera(peerId, remoteStream);
     };
 
     track.onunmute = () => {
@@ -319,9 +498,13 @@ export class CallProvider extends LitElement {
     track.onended = () => {
       this.videoStreams.delete(peerId);
       this.sharingPeers.delete(peerId);
+      this.cameraPeers.delete(peerId);
       this.pendingShare.delete(peerId);
+      this.pendingCamera.delete(peerId);
       this.clearScreenLookup(peerId);
+      this.clearCameraLookup(peerId);
       this.removeScreen(peerId);
+      this.removeCamera(peerId);
     };
 
     attach();
@@ -341,10 +524,12 @@ export class CallProvider extends LitElement {
       speaking: [...this.speaking],
       sharing: this.sharing,
       screens: [...this.screens],
+      cameras: [...this.cameras],
       start: this.start,
       leave: this.leave,
       setMuted: this.setMuted,
       toggleScreenShare: this.toggleScreenShare,
+      toggleCamera: this.toggleCamera,
     };
   }
 
@@ -362,7 +547,9 @@ export class CallProvider extends LitElement {
     s.on("answer", this.handleAnswer);
     s.on("ice-candidate", this.handleIce);
     s.on("screen-status", this.handleScreenStatus);
+    s.on("camera-status", this.handleCameraStatus);
     s.on("screen-sync", this.handleScreenSync);
+    s.on("camera-sync", this.handleCameraSync);
   }
 
   override disconnectedCallback(): void {
@@ -374,9 +561,23 @@ export class CallProvider extends LitElement {
     s.off("answer", this.handleAnswer);
     s.off("ice-candidate", this.handleIce);
     s.off("screen-status", this.handleScreenStatus);
+    s.off("camera-status", this.handleCameraStatus);
     s.off("screen-sync", this.handleScreenSync);
+    s.off("camera-sync", this.handleCameraSync);
     this.teardown();
     super.disconnectedCallback();
+  }
+
+  protected override updated(): void {
+    const deviceId = this.settings.cameraId;
+    if (
+      this.cameraOn &&
+      this.lastAppliedCameraId !== undefined &&
+      this.lastAppliedCameraId !== deviceId
+    ) {
+      void this.restartCameraStream();
+    }
+    this.lastAppliedCameraId = deviceId;
   }
 
   private async ensureLocalStream(): Promise<void> {
@@ -419,13 +620,23 @@ export class CallProvider extends LitElement {
     });
     this.screenStream = null;
     this.sharing = false;
+    this.cameraStream?.getTracks().forEach((t) => {
+      t.stop();
+    });
+    this.cameraStream = null;
+    this.cameraOn = false;
     this.videoSenders.clear();
     this.videoStreams.clear();
     this.pendingShare.clear();
+    this.pendingCamera.clear();
     this.sharingPeers.clear();
+    this.cameraPeers.clear();
     for (const timer of this.screenLookupTimers.values()) window.clearTimeout(timer);
     this.screenLookupTimers.clear();
+    for (const timer of this.cameraLookupTimers.values()) window.clearTimeout(timer);
+    this.cameraLookupTimers.clear();
     this.screens = [];
+    this.cameras = [];
 
     this.stopMetering();
   }
@@ -525,8 +736,8 @@ export class CallProvider extends LitElement {
     // Video transceiver first (matches the old working mesh setup).
     const videoTransceiver = pc.addTransceiver("video", { direction: "sendrecv" });
     this.videoSenders.set(peerId, videoTransceiver.sender);
-    const screenTrack = this.screenStream?.getVideoTracks()[0];
-    if (screenTrack) await videoTransceiver.sender.replaceTrack(screenTrack);
+    const outgoing = this.activeOutgoingVideoTrack();
+    if (outgoing) await videoTransceiver.sender.replaceTrack(outgoing);
 
     const stream = this.localStream;
     if (stream) {
@@ -557,8 +768,9 @@ export class CallProvider extends LitElement {
     };
 
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === "connected" && this.sharingPeers.has(peerId)) {
-        this.tryAttachScreen(peerId);
+      if (pc.connectionState === "connected") {
+        if (this.sharingPeers.has(peerId)) this.tryAttachScreen(peerId);
+        else if (this.cameraPeers.has(peerId)) this.tryAttachCamera(peerId);
       }
       if (pc.connectionState === "failed" || pc.connectionState === "closed") {
         this.removePeer(peerId);
@@ -591,23 +803,31 @@ export class CallProvider extends LitElement {
     this.videoSenders.delete(peerId);
     this.videoStreams.delete(peerId);
     this.pendingShare.delete(peerId);
+    this.pendingCamera.delete(peerId);
     this.sharingPeers.delete(peerId);
+    this.cameraPeers.delete(peerId);
     this.clearScreenLookup(peerId);
+    this.clearCameraLookup(peerId);
     this.removeScreen(peerId);
+    this.removeCamera(peerId);
     this.removeAnalyser(peerId);
   }
 
   private handleAllClients = async (clients: Client[]): Promise<void> => {
     if (!this.roomId || !Array.isArray(clients)) return;
 
-    // Seed sharers before offers so incoming video tracks are accepted.
+    // Seed video state before offers so incoming tracks are accepted.
     for (const client of clients) {
       const id = typeof client === "string" ? client : client.id;
       if (!id) continue;
       const sharing = typeof client === "object" && Boolean(client.sharing);
+      const cameraOn = typeof client === "object" && Boolean(client.cameraOn);
       if (sharing) {
         this.sharingPeers.add(id);
         this.pendingShare.add(id);
+      } else if (cameraOn) {
+        this.cameraPeers.add(id);
+        this.pendingCamera.add(id);
       }
     }
 
@@ -616,14 +836,21 @@ export class CallProvider extends LitElement {
       if (!id || this.peers.has(id)) continue;
       await this.createOffer(id);
       if (this.sharingPeers.has(id)) this.tryAttachScreen(id);
+      else if (this.cameraPeers.has(id)) this.tryAttachCamera(id);
     }
 
     const sharingIds = [...this.sharingPeers];
+    const cameraIds = [...this.cameraPeers].filter((id) => !this.sharingPeers.has(id));
     window.setTimeout(() => {
       for (const id of sharingIds) {
         if (this.screens.some((s) => s.id === id)) continue;
         socketService.socket.emit("screen-sync", { target: id });
         this.tryAttachScreen(id);
+      }
+      for (const id of cameraIds) {
+        if (this.cameras.some((c) => c.id === id)) continue;
+        socketService.socket.emit("camera-sync", { target: id });
+        this.tryAttachCamera(id);
       }
     }, 2500);
   };
@@ -643,6 +870,7 @@ export class CallProvider extends LitElement {
       await pc.setLocalDescription(answer);
       socketService.socket.emit("answer", { sdp: answer, target: from });
       if (this.sharingPeers.has(from)) this.tryAttachScreen(from);
+      else if (this.cameraPeers.has(from)) this.tryAttachCamera(from);
     } catch {
       logger.log("ERROR", `Failed to handle offer from ${from.slice(0, 6)}.`);
     }
@@ -655,6 +883,7 @@ export class CallProvider extends LitElement {
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
       if (this.sharingPeers.has(from)) this.tryAttachScreen(from);
+      else if (this.cameraPeers.has(from)) this.tryAttachCamera(from);
     } catch {
       logger.log("ERROR", `Failed to handle answer from ${from.slice(0, 6)}.`);
     }
@@ -666,22 +895,20 @@ export class CallProvider extends LitElement {
   };
 
   private handlePeerJoin = async ({ user }: JoinPayload): Promise<void> => {
-    if (!this.roomId || !this.sharing || !this.screenStream) return;
+    if (!this.roomId) return;
 
     const peerId = user.id;
     const selfId = socketService.socket.id;
     if (!peerId || peerId === selfId) return;
 
-    const track = this.screenStream.getVideoTracks()[0];
+    const track = this.activeOutgoingVideoTrack();
     if (!track) return;
 
-    // The joiner initiates the offer; once connected, always renegotiate so
-    // they receive the active screen track (initial answers can miss video).
     for (let attempt = 0; attempt < 25; attempt++) {
       const pc = this.peers.get(peerId);
       const sender = this.videoSenders.get(peerId);
       if (pc && sender) {
-        await this.pushScreenToPeer(peerId, track);
+        await this.pushVideoToPeer(peerId, track);
         return;
       }
       await new Promise((r) => window.setTimeout(r, 200));
@@ -696,7 +923,14 @@ export class CallProvider extends LitElement {
     if (!this.sharing || !this.screenStream) return;
     const track = this.screenStream.getVideoTracks()[0];
     if (!track) return;
-    await this.pushScreenToPeer(from, track);
+    await this.pushVideoToPeer(from, track);
+  };
+
+  private handleCameraSync = async ({ from }: { from: string }): Promise<void> => {
+    if (!this.cameraOn || this.sharing || !this.cameraStream) return;
+    const track = this.activeOutgoingVideoTrack();
+    if (!track) return;
+    await this.pushVideoToPeer(from, track);
   };
 
   private handleScreenStatus = (detail: { user: string; sharing: boolean }): void => {
@@ -706,13 +940,32 @@ export class CallProvider extends LitElement {
     if (detail.sharing) {
       this.sharingPeers.add(detail.user);
       this.pendingShare.add(detail.user);
+      this.removeCamera(detail.user);
       this.tryAttachScreen(detail.user);
     } else {
       this.sharingPeers.delete(detail.user);
       this.pendingShare.delete(detail.user);
       this.clearScreenLookup(detail.user);
-      this.videoStreams.delete(detail.user);
       this.removeScreen(detail.user);
+      if (this.cameraPeers.has(detail.user)) this.tryAttachCamera(detail.user);
+    }
+  };
+
+  private handleCameraStatus = (detail: { user: string; cameraOn: boolean }): void => {
+    const selfId = socketService.socket.id;
+    if (detail.user === selfId) return;
+
+    if (detail.cameraOn) {
+      this.cameraPeers.add(detail.user);
+      this.pendingCamera.add(detail.user);
+      if (!this.sharingPeers.has(detail.user)) {
+        this.tryAttachCamera(detail.user);
+      }
+    } else {
+      this.cameraPeers.delete(detail.user);
+      this.pendingCamera.delete(detail.user);
+      this.clearCameraLookup(detail.user);
+      this.removeCamera(detail.user);
     }
   };
 

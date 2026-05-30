@@ -60,6 +60,16 @@ export default css`
     padding: 12px;
   }
 
+  /* Camera fills the member tile but keeps the normal grid cell size. */
+  .cell.camera {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .cell.camera .media {
+    aspect-ratio: 1 / 1;
+  }
+
   .avatar {
     position: relative;
     width: 72px;
@@ -109,6 +119,14 @@ export default css`
     width: 100%;
     height: 100%;
     object-fit: contain;
+  }
+
+  .media.camera video {
+    object-fit: cover;
+  }
+
+  .media video.mirror {
+    transform: scaleX(-1);
   }
 
   /* Talking: green cell highlight + pulsing halo (avatar or video frame). */
@@ -189,5 +207,27 @@ export default css`
     margin: 0;
     font-size: 13px;
     color: var(--app-muted);
+  }
+
+  @media (min-width: 900px) {
+    .grid {
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 20px;
+    }
+
+    .cell {
+      padding: 20px;
+      gap: 18px;
+    }
+
+    .avatar {
+      width: 144px;
+      height: 144px;
+      font-size: 48px;
+    }
+
+    .name {
+      font-size: 15px;
+    }
   }
 `;

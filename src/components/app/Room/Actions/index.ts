@@ -30,6 +30,10 @@ export class RoomActions extends LitElement {
     void this.call?.toggleScreenShare();
   };
 
+  private handleCamera = () => {
+    void this.call?.toggleCamera();
+  };
+
   private renderScreenIcon() {
     return html`<svg
       viewBox="0 0 24 24"
@@ -48,8 +52,26 @@ export class RoomActions extends LitElement {
     </svg>`;
   }
 
+  private renderCameraIcon() {
+    return html`<svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M23 7l-7 5 7 5V7z"></path>
+      <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+    </svg>`;
+  }
+
   override render() {
     const sharing = this.call?.sharing ?? false;
+    const cameraOn = this.call?.cameraOn ?? false;
 
     return html`
       <div class="bar">
@@ -57,6 +79,14 @@ export class RoomActions extends LitElement {
           .muted=${this.call?.muted ?? true}
           @mute-change=${this.handleMute}
         ></app-mute-button>
+
+        <ui-button
+          color=${cameraOn ? "primary" : "secondary"}
+          @onClick=${this.handleCamera}
+        >
+          ${this.renderCameraIcon()}
+          <span>${cameraOn ? "Stop camera" : "Camera"}</span>
+        </ui-button>
 
         <ui-button
           color=${sharing ? "primary" : "secondary"}

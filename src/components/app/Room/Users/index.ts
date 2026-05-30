@@ -15,6 +15,7 @@ type JoinEvent = { room: string; user: RoomMember };
 type LeaveEvent = { room: string; user: string };
 type MicEvent = { user: string; muted: boolean };
 type ScreenEvent = { user: string; sharing: boolean };
+type CameraEvent = { user: string; cameraOn: boolean };
 
 @customElement("app-room-users")
 export class RoomUsers extends LitElement {
@@ -33,7 +34,7 @@ export class RoomUsers extends LitElement {
   call?: CallApi;
 
   @state() private members: RoomMember[] = [];
-  @state() private playingScreens = new Set<string>();
+  @state() private playingVideos = new Set<string>();
 
   private requestedRoom?: string;
 
@@ -48,6 +49,7 @@ export class RoomUsers extends LitElement {
     socketService.socket.on("user-leave-room", this.handleUserLeave);
     socketService.socket.on("mic-status", this.handleMicStatus);
     socketService.socket.on("screen-status", this.handleScreenStatus);
+    socketService.socket.on("camera-status", this.handleCameraStatus);
   }
 
   override disconnectedCallback(): void {
@@ -56,6 +58,7 @@ export class RoomUsers extends LitElement {
     socketService.socket.off("user-leave-room", this.handleUserLeave);
     socketService.socket.off("mic-status", this.handleMicStatus);
     socketService.socket.off("screen-status", this.handleScreenStatus);
+    socketService.socket.off("camera-status", this.handleCameraStatus);
     super.disconnectedCallback();
   }
 
@@ -69,8 +72,11 @@ export class RoomUsers extends LitElement {
     }
 
     if (changed.has("call")) {
-      const screenIds = new Set(this.call?.screens.map((s) => s.id) ?? []);
-      this.playingScreens = new Set([...this.playingScreens].filter((id) => screenIds.has(id)));
+      const videoIds = new Set([
+        ...(this.call?.screens.map((s) => s.id) ?? []),
+        ...(this.call?.cameras.map((c) => c.id) ?? []),
+      ]);
+      this.playingVideos = new Set([...this.playingVideos].filter((id) => videoIds.has(id)));
     }
   }
 
@@ -88,6 +94,7 @@ export class RoomUsers extends LitElement {
       name: this.user?.name ?? id.slice(0, 6),
       muted: this.call?.muted ?? true,
       sharing: this.call?.sharing ?? false,
+      cameraOn: this.call?.cameraOn ?? false,
     };
   }
 
@@ -134,18 +141,39 @@ export class RoomUsers extends LitElement {
     );
   };
 
+  private handleCameraStatus = (detail: CameraEvent) => {
+    this.members = this.members.map((m) =>
+      m.id === detail.user ? { ...m, cameraOn: detail.cameraOn } : m,
+    );
+  };
+
   private screenStream(id: string): MediaStream | undefined {
     return this.call?.screens.find((s) => s.id === id)?.stream;
+  }
+
+  private cameraStream(id: string): MediaStream | undefined {
+    return this.call?.cameras.find((c) => c.id === id)?.stream;
+  }
+
+  /** Screen share wins over camera when both are active. */
+  private displayStream(member: RoomMember): MediaStream | undefined {
+    if (this.isSharing(member)) return this.screenStream(member.id);
+    if (this.isCamera(member)) return this.cameraStream(member.id);
+    return undefined;
   }
 
   private isSharing(member: RoomMember): boolean {
     return Boolean(member.sharing || this.screenStream(member.id));
   }
 
-  private isStreamPending(id: string): boolean {
-    const stream = this.screenStream(id);
-    if (!stream) return false;
-    return !this.playingScreens.has(id);
+  private isCamera(member: RoomMember): boolean {
+    if (this.isSharing(member)) return false;
+    return Boolean(member.cameraOn || this.cameraStream(member.id));
+  }
+
+  private isStreamPending(member: RoomMember): boolean {
+    if (!this.displayStream(member)) return false;
+    return !this.playingVideos.has(member.id);
   }
 
   private initials(name: string): string {
@@ -184,8 +212,12 @@ export class RoomUsers extends LitElement {
     return [...this.members].sort((a, b) => {
       const aShare = this.isSharing(a);
       const bShare = this.isSharing(b);
+      const aCam = this.isCamera(a);
+      const bCam = this.isCamera(b);
       if (aShare && !bShare) return -1;
       if (!aShare && bShare) return 1;
+      if (aCam && !bCam) return -1;
+      if (!aCam && bCam) return 1;
       if (id) {
         if (a.id === id) return -1;
         if (b.id === id) return 1;
@@ -195,13 +227,17 @@ export class RoomUsers extends LitElement {
   }
 
   private renderMedia(member: RoomMember) {
-    const stream = this.screenStream(member.id);
+    const stream = this.displayStream(member);
     if (stream) {
-      const pending = this.isStreamPending(member.id);
-      return html`<div class="media ${pending ? "pending" : ""}">
-        ${pending ? html`<span class="media-label">Loading screen…</span>` : ""}
+      const sharing = this.isSharing(member);
+      const pending = this.isStreamPending(member);
+      const isSelf = member.id === this.selfId;
+      const label = sharing ? "Loading screen…" : "Loading camera…";
+      return html`<div class="media ${sharing ? "screen" : "camera"} ${pending ? "pending" : ""}">
+        ${pending ? html`<span class="media-label">${label}</span>` : ""}
         <video
           data-member-id=${member.id}
+          class=${isSelf && !sharing ? "mirror" : ""}
           autoplay
           playsinline
           muted
@@ -220,8 +256,8 @@ export class RoomUsers extends LitElement {
       if (!memberId) return;
 
       const markPlaying = () => {
-        if (!this.playingScreens.has(memberId)) {
-          this.playingScreens = new Set([...this.playingScreens, memberId]);
+        if (!this.playingVideos.has(memberId)) {
+          this.playingVideos = new Set([...this.playingVideos, memberId]);
         }
       };
 
@@ -244,8 +280,9 @@ export class RoomUsers extends LitElement {
               ${this.orderedMembers().map((m) => {
                 const isSelf = m.id === this.selfId;
                 const sharing = this.isSharing(m);
+                const camera = this.isCamera(m);
                 const speaking = !m.muted && (this.call?.speaking?.includes(m.id) ?? false);
-                return html`<div class="cell ${sharing ? "sharing" : ""} ${speaking ? "speaking" : ""}">
+                return html`<div class="cell ${sharing ? "sharing" : ""} ${camera ? "camera" : ""} ${speaking ? "speaking" : ""}">
                   ${this.renderMedia(m)}
                   <span class="name">${m.name}${isSelf ? " (you)" : ""}</span>
                   ${this.renderMic(m.muted)}
