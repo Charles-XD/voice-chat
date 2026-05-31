@@ -210,7 +210,6 @@ export class App extends LitElement {
             </button>
           </div>
           <app-room-actions></app-room-actions>
-          <app-room-manage></app-room-manage>
           <app-room-users></app-room-users>
         </div>
 
@@ -237,6 +236,7 @@ export class App extends LitElement {
             </button>
           </div>
           <app-room-share></app-room-share>
+          <app-room-manage></app-room-manage>
           <app-room-participants></app-room-participants>
           <app-room-chat></app-room-chat>
           <app-logs></app-logs>

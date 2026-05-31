@@ -74,6 +74,7 @@ export class RoomManage extends LitElement {
 
               <form @submit=${this.handleAllow} novalidate>
                 <ui-textfield
+                  class="field"
                   label="User key"
                   placeholder="Enter a user key"
                   required

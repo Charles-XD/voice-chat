@@ -56,14 +56,14 @@ export default css`
   .cell.sharing {
     grid-column: 1 / -1;
     aspect-ratio: auto;
-    gap: 10px;
+    gap: 16px;
     padding: 12px;
   }
 
   /* Camera fills the member tile but keeps the normal grid cell size. */
   .cell.camera {
-    padding: 10px;
-    gap: 10px;
+    padding: 0px 0px 10px 0px;
+    gap: 16px;
   }
 
   .cell.camera .media {
@@ -89,9 +89,9 @@ export default css`
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 9;
-    border-radius: 12px;
+    border-radius-top-left: 12px;
+    border-radius-top-right: 12px;
     overflow: hidden;
-    background: #000;
   }
 
   .media-label {
@@ -218,8 +218,8 @@ export default css`
 
   @media (max-width: 899px) {
     .grid {
-      grid-template-columns: 1fr;
-      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
     }
   }
 
